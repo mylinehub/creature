@@ -1,0 +1,3 @@
+manimgl
+numpy
+setuptools<81
