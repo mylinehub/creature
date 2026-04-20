@@ -1,4 +1,4 @@
 .venv/
 __pycache__/
 *.pyc
-media/.DS_Store
+.DS_Store
