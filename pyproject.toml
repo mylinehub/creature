@@ -1,0 +1,19 @@
+[project]
+name = "mathlab-mylinehub-creature"
+version = "0.1.0"
+description = "MathLab MYLINEHUB teaching mascot system"
+authors = [
+  { name = "mylinehub", email = "your-email@example.com" }
+]
+dependencies = [
+  "manimgl",
+  "numpy"
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# 👇 THIS IS THE FIX
+[tool.setuptools]
+packages = ["mathlab_creature"]

@@ -1,0 +1,9 @@
+LICENSE
+README.md
+pyproject.toml
+mathlab_creature/__init__.py
+mathlab_mylinehub_creature.egg-info/PKG-INFO
+mathlab_mylinehub_creature.egg-info/SOURCES.txt
+mathlab_mylinehub_creature.egg-info/dependency_links.txt
+mathlab_mylinehub_creature.egg-info/requires.txt
+mathlab_mylinehub_creature.egg-info/top_level.txt

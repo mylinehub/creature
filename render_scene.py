@@ -15,24 +15,24 @@ from __future__ import annotations
 
 from manimlib import Scene, FadeIn, FadeOut, Text, VGroup, Write
 
-from core.logger import get_logger
-from core.geometry import point
+from mathlab_creature.core.logger import get_logger
+from mathlab_creature.core.geometry import point
 
-from creature.rigs.body_rig import build_body_rig
-from creature.actions.blink_action import build_blink_animation
-from creature.actions.look_action import (
+from mathlab_creature.creature.rigs.body_rig import build_body_rig
+from mathlab_creature.creature.actions.blink_action import build_blink_animation
+from mathlab_creature.creature.actions.look_action import (
     build_look_animation,
     build_look_center_animation,
 )
-from creature.actions.wave_action import build_wave_animation
-from creature.actions.walk_action import build_walk_animation
-from creature.actions.point_action import build_point_animation
-from creature.actions.hop_action import build_hop_animation
+from mathlab_creature.creature.actions.wave_action import build_wave_animation
+from mathlab_creature.creature.actions.walk_action import build_walk_animation
+from mathlab_creature.creature.actions.point_action import build_point_animation
+from mathlab_creature.creature.actions.hop_action import build_hop_animation
 
-from props.pointer_stick import build_pointer_stick
-from props.math_board import build_math_board
-from props.axis_plane import build_axis_plane
-from props.formula_card import build_formula_card
+from mathlab_creature.props.pointer_stick import build_pointer_stick
+from mathlab_creature.props.math_board import build_math_board
+from mathlab_creature.props.axis_plane import build_axis_plane
+from mathlab_creature.props.formula_card import build_formula_card
 
 logger = get_logger(__name__)
 

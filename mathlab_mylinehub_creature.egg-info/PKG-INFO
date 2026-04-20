@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: mathlab-mylinehub-creature
+Version: 0.1.0
+Summary: MathLab MYLINEHUB teaching mascot system
+Author-email: mylinehub <your-email@example.com>
+License-File: LICENSE
+Requires-Dist: manimgl
+Requires-Dist: numpy
+Dynamic: license-file
