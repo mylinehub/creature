@@ -1,0 +1,2 @@
+[console_scripts]
+creature = mathlab_creature.cli:main

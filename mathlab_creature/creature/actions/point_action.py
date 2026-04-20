@@ -20,7 +20,6 @@ from math import radians
 
 from manimlib import AnimationGroup
 from manimlib import ApplyMethod
-from manimlib import Wait
 
 from mathlab_creature.config.defaults import DEBUG_MODE
 from mathlab_creature.config.defaults import LOG_ANIMATION_EVENTS
@@ -37,7 +36,7 @@ logger = get_logger(__name__)
 # ============================================================
 
 _ALLOWED_SIDES = {"left", "right"}
-_REQUIRED_RIG_KEYS = ("arms",)
+_REQUIRED_RIG_KEYS = ("arms", "group")
 
 
 # ============================================================
@@ -199,18 +198,29 @@ def build_point_reach_animation(
 
 
 def build_point_hold_animation(
+    rig: dict,
     *,
     hold_time: float = POINT_HOLD_TIME,
 ):
     """
     Build a small hold after the pointing reach.
+
+    Uses a zero-motion animation on the full rig group so the hold works
+    inside AnimationGroup without depending on a Wait import.
     """
+    _validate_rig(rig)
     hold_time = _validate_positive("hold_time", hold_time)
 
     if LOG_ANIMATION_EVENTS:
         logger.info("Building point hold animation | hold_time=%.3f", hold_time)
 
-    return Wait(hold_time)
+    creature_group = rig["group"]
+
+    return ApplyMethod(
+        creature_group.shift,
+        [0.0, 0.0, 0.0],
+        run_time=hold_time,
+    )
 
 
 def build_point_return_animation(
@@ -324,6 +334,7 @@ def build_point_animation(
     if hold:
         animations.append(
             build_point_hold_animation(
+                rig,
                 hold_time=hold_time,
             )
         )

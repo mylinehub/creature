@@ -14,6 +14,10 @@ dependencies = [
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-# 👇 THIS IS THE FIX
-[tool.setuptools]
-packages = ["mathlab_creature"]
+# ✅ Auto-discover only inside mathlab_creature
+[tool.setuptools.packages.find]
+include = ["mathlab_creature*"]
+
+# ✅ CLI entry point
+[project.scripts]
+creature = "mathlab_creature.cli:main"
