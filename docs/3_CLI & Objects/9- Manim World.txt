@@ -1,0 +1,453 @@
+9- Manim World
+
+Got it. Let’s restart this part from zero and make it visual.
+You are not asking for definitions only. You want to feel what these values mean.
+We will explain only these:
+frame_height
+all the buff values
+default_mobject_to_edge_buff
+default_mobject_to_mobject_buff
+key_bindings
+why names and meanings seem not to match
+
+1. First: Manim has its own world, not your screen pixels
+When you open a scene, Manim imagines a math-like stage.
+Think of the screen as a rectangle. Manim places an invisible coordinate system on top of it.
+Like this:
+                top
+                 ↑
+                 |
+      left  <----+---->  right
+                 |
+                 |
+                 ↓
+               bottom
+The middle is:
+(0, 0)
+That is the center of the screen.
+So Manim thinks in positions like:
+center
+up a little
+left a lot
+near top edge
+near right edge
+It does not primarily think:
+pixel 357
+pixel 892
+That is the first key idea.
+
+2. What frame_height: 8.0 really means
+sizes:
+  frame_height: 8.0
+This means:
+The visible Manim world is 8 units tall.
+Not 8 pixels. Not 8 cm. Just 8 Manim units.
+
+Imagine the screen vertically divided like this
+If total visible height = 8.0, then center is 0.
+So top half is about +4, and bottom half is about -4.
+Like this:
+y = +4   ───────────────── top visible area
+y = +3
+y = +2
+y = +1
+y =  0   ───────────────── center
+y = -1
+y = -2
+y = -3
+y = -4   ───────────────── bottom visible area
+So when I earlier said +4 and -4, I meant:
+center = 0
+total height = 8
+so half up = +4
+half down = -4
+That is all.
+
+Why does this matter?
+Because if you place something at:
+dot.move_to(UP * 2)
+that means:
+move the dot upward by 2 Manim units
+So the dot is halfway between center and top if frame height is 8.
+
+Real feeling example
+Imagine your screen is a whiteboard.
+center of board = 0
+top edge = about +4
+bottom edge = about -4
+Then putting something at y = 3.5 means:
+“place it near the top”
+Putting something at y = -3.5 means:
+“place it near the bottom”
+
+3. Why use 8.0? Why not 100 or 1?
+Because Manim wants a coordinate system that feels easy for scene-building.
+If total height were 10, 100, or 1, all spacing rules would feel different.
+8.0 is just a chosen default scale that makes:
+text sizes
+geometry sizes
+movement distances feel reasonable.
+So:
+frame_height is the scale of the visible Manim world.
+
+4. What is a buff?
+A buff is just a gap or spacing.
+That’s all.
+Think of buff as:
+padding
+margin
+breathing room
+gap between things
+
+5. Why the name buff?
+It comes from the idea of a buffer space.
+Like:
+“leave some buffer”
+“keep a buffer between them”
+So buff means:
+extra space so objects are not touching
+Memory trick:
+buff = buffer gap
+
+6. Now each buff value
+small_buff: 0.1
+med_small_buff: 0.25
+med_large_buff: 0.5
+large_buff: 1.0
+These are all just standard default gap sizes.
+
+small_buff: 0.1
+Very tiny gap.
+Imagine
+Two labels are almost touching, and you want only a tiny space.
+Like:
+Hello  World
+Very close, but not touching.
+That’s small_buff.
+
+med_small_buff: 0.25
+A small but more comfortable gap.
+Imagine
+A label slightly above a dot.
+Not glued to it, not far away.
+
+med_large_buff: 0.5
+A medium gap.
+Imagine
+A title above a formula, with visible separation.
+This is a more natural presentation gap.
+
+large_buff: 1.0
+A big gap.
+Imagine
+Two major blocks on screen:
+title block
+diagram block
+with clear separation.
+This is not “tiny spacing” anymore. This is “keep these things clearly apart.”
+
+7. Why not just always write numbers directly?
+You could write:
+obj1.next_to(obj2, buff=0.23)
+But if you do that everywhere, your scenes become messy and inconsistent.
+So Manim gives common spacing levels:
+tiny
+small
+medium
+large
+That way layouts feel more consistent.
+
+8. Real visual example for buffs
+Imagine three circles placed horizontally.
+No buff
+(O)(O)(O)
+Too cramped.
+small_buff
+(O) (O) (O)
+Just barely separated.
+med_small_buff
+(O)   (O)   (O)
+More readable.
+large_buff
+(O)       (O)       (O)
+Very separated.
+That is the purpose of these values.
+
+9. default_mobject_to_edge_buff: 0.5
+default_mobject_to_edge_buff: 0.5
+This is the default gap between an object and the edge of the screen.
+
+Example intuition
+Suppose you say:
+title.to_edge(UP)
+You might think:
+“put title at top”
+But Manim does not usually push it so hard that it sticks to the edge.
+Instead it leaves a default margin.
+That margin is this value.
+
+Visual
+Without edge buffer:
+┌──────────────────────────────┐
+│TITLE                         │
+│                              │
+│                              │
+└──────────────────────────────┘
+Too jammed against top edge.
+With edge buffer:
+┌──────────────────────────────┐
+│                              │
+│        TITLE                 │
+│                              │
+└──────────────────────────────┘
+Now title has breathing room from the top boundary.
+That gap is default_mobject_to_edge_buff.
+
+10. default_mobject_to_mobject_buff: 0.25
+default_mobject_to_mobject_buff: 0.25
+This is the default gap between two objects when placing one relative to another.
+
+Example
+Suppose:
+label.next_to(dot)
+That means:
+place label near dot
+But how near?
+Not touching. Not random. The default gap used is this config value.
+
+Visual
+Without buffer:
+(dot)label
+looks stuck together.
+With default buffer:
+(dot)  label
+looks readable.
+That gap is default_mobject_to_mobject_buff.
+
+11. Why there are two special default buffs
+Because these are two common layout operations:
+A. object near screen edge
+to_edge(...)
+B. object near another object
+next_to(...)
+These are different situations, so separate defaults make sense.
+
+12. Now the key bindings block
+key_bindings:
+  pan_3d: "d"
+  pan: "f"
+  reset: "r"
+  quit: "q"
+  select: "s"
+  unselect: "u"
+  grab: "g"
+  x_grab: "h"
+  y_grab: "v"
+  z_grab: "z"
+  resize: "t"
+  color: "c"
+  information: "i"
+  cursor: "k"
+These are just keyboard shortcuts for interactive mode.
+Meaning:
+left side = action name
+right side = keyboard key
+So:
+grab: "g"
+means:
+pressing g triggers the “grab” action
+
+13. Why the names feel strange
+You said:
+names do not match
+Yes — because the left side is not the key, it is the action name.
+The right side is the actual keyboard character.
+So:
+pan: "f"
+does not mean “the word pan should look like f”
+It means:
+action = pan
+key assigned = f
+This is a mapping.
+Think of it like:
+action  → key
+
+14. Example mapping table
+￼
+So left side is:
+command/action label
+Right side is:
+actual key on keyboard
+
+15. What each key binding action means intuitively
+Now let’s go one by one.
+
+pan_3d: "d"
+Meaning
+A key used for 3D camera/view panning interaction.
+Think:
+move the 3D view around
+This is more for interactive development, not for final rendered video behavior.
+
+pan: "f"
+Meaning
+Pan the current view in interactive mode.
+Think:
+drag/move the camera across the scene
+like shifting what part of the scene you are looking at
+
+reset: "r"
+Meaning
+Reset the interactive state/view.
+Think:
+“go back to default”
+Useful if you moved things or changed interaction state and want to return.
+
+quit: "q"
+Meaning
+Quit interactive mode or preview interaction.
+The comment says “Together with command”, which suggests platform-specific modifier use may apply.
+
+select: "s"
+Meaning
+Select something in interactive mode.
+Think:
+choose object / interaction target
+
+unselect: "u"
+Meaning
+Clear selection.
+
+grab: "g"
+Meaning
+Grab means:
+pick something up
+move it interactively
+This is common wording in graphics tools.
+Think:
+“I want to move this selected thing”
+
+x_grab: "h"
+y_grab: "v"
+z_grab: "z"
+These mean constrained grab.
+Think:
+move only along x-axis
+move only along y-axis
+move only along z-axis
+So instead of free movement:
+x_grab = horizontal-only
+y_grab = vertical-only
+z_grab = depth-axis-only
+
+resize: "t"
+Meaning
+Resize/scale interactively.
+Think:
+make selected thing bigger or smaller
+
+color: "c"
+Meaning
+Color-related interaction shortcut.
+Likely used to trigger color adjustment/info mode.
+
+information: "i"
+Meaning
+Show information.
+Think:
+inspect selected object
+inspect interaction state
+show metadata/diagnostic info
+
+cursor: "k"
+Meaning
+Cursor-related interaction mode.
+Think:
+toggle cursor display or cursor mode
+
+16. Real analogy for key bindings
+Think of Blender / CAD / game editor / graphics tool.
+There are actions like:
+select
+move
+scale
+rotate
+pan
+inspect
+And each action is mapped to a key.
+This YAML block is just that mapping.
+
+17. ignore_manimlib_modules_on_reload: True
+Now this one.
+You said you did not understand what it is doing.
+
+Meaning in plain English
+When Manim reloads code during development, should it reload the engine files too?
+If this is:
+ignore_manimlib_modules_on_reload: True
+then the answer is:
+No — ignore the built-in manimlib engine files during reload.
+
+Why useful
+Suppose you are editing:
+my_project/
+  scene.py
+  helpers.py
+You want reload to notice changes in:
+your scene
+your helper files
+But you usually do not want it to keep reloading the whole engine itself:
+manimlib/...
+because:
+slower
+more fragile
+unnecessary
+confusing
+So this setting says:
+reload my project code, not the Manim engine internals
+
+18. Simple reload example
+Imagine:
+you changed logo_intro.py
+you did not change manimlib/mobject/mobject.py
+Then on reload:
+With this set to True
+reload your project code only
+If it were False
+Manim might also try to reload its own library modules, which is usually not what you want
+
+19. Why names don’t seem to match
+You said:
+main name does not match
+This is because YAML keys are often labels for behavior, not “descriptions in plain sentence form.”
+Examples:
+frame_height
+does not mean “pixel height” It means “height of visible Manim coordinate frame”
+small_buff
+does not mean “something visual by itself” It means “small buffer spacing value”
+grab
+does not mean “actual object named grab” It means “interaction action called grab”
+So the keys are short developer-oriented names.
+
+20. Final intuitive summary for this whole part
+frame_height
+How tall the visible Manim world is
+small_buff, med_small_buff, etc.
+Standard spacing gaps
+default_mobject_to_edge_buff
+Default margin from screen edge
+default_mobject_to_mobject_buff
+Default gap between objects
+key_bindings
+Action name → keyboard key mapping for interactive mode
+ignore_manimlib_modules_on_reload
+Reload my project code, but leave the Manim engine alone
+
+21. One last very concrete mini-scene intuition
+Imagine a title and a subtitle.
+frame_height = 8 means the stage has a visible top and bottom in a coordinate world about 8 units tall
+title.to_edge(UP) uses default_mobject_to_edge_buff so title is not glued to top
+subtitle.next_to(title, DOWN) uses default_mobject_to_mobject_buff so subtitle is not touching title
+if you want bigger separation, use large_buff
+if you are interacting in preview mode, keys like g, r, q, s trigger actions from key_bindings
+If you want, next I will draw this exact title/subtitle example as a scene diagram with coordinates and spacing labels so the +4/-4 and buffs become visually obvious.

@@ -1,0 +1,576 @@
+13- Math Behind Creature / Mascot
+
+You’re right. I went too much into description and not enough into how the math is formed.
+Let us restart properly.
+This time the guide will be:
+very beginner-friendly English first
+then symbols
+then formula
+then what the formula means geometrically
+then how it connects to the code
+then what happens if a number changes
+And I will focus especially on the eye system, because that is where the real geometry becomes visible.
+I’ll use the size values we already identified in the project notes: EYE_WIDTH = 0.42, EYE_HEIGHT = 0.52, EYE_RADIUS = 0.22, PUPIL_RADIUS = 0.08, PUPIL_MAX_OFFSET = 0.07, EYE_GAP = 0.42
+
+1. What sizes.py really is
+sizes.py is not “just constants”.
+It is the file that decides:
+the allowed geometry
+the allowed proportions
+the safe movement limits
+the spatial relationships between parts
+So mathematically, it is a parameterized shape system.
+A parameterized shape system means:
+the creature is defined by variables, not by one fixed drawing.
+For example:
+if eye width changes, the eye shape changes
+if pupil radius changes, pupil size changes
+if max offset changes, gaze freedom changes
+if face-zone height changes, the whole face layout changes
+So the whole mascot is controlled by numbers.
+
+2. The two big math ideas in this file
+There are two kinds of math in sizes.py.
+2.1 Shape math
+This answers:
+what curve is the eye?
+what curve is the pupil?
+what is the width/height of mouth?
+how big is the body frame?
+This is about equations of shapes.
+2.2 Constraint math
+This answers:
+how far can the pupil move?
+how do we keep it inside the eye?
+how do we keep face parts balanced?
+how do we place nose below eyes and mouth below nose?
+This is about allowed positions and limits.
+So this file is not only about shape. It is also about legal motion and legal placement.
+
+3. First build the body frame in math language
+You said you already understand body and face a bit, so I’ll do this part clearly but compactly.
+Suppose the creature body center is at:
+C_body = (0, 0)
+Let:
+body width = W
+body height = H
+From the values:
+BODY_M_WIDTH = 3.6
+BODY_M_HEIGHT = 4.2
+we get:
+W = 3.6
+H = 4.2
+Then half sizes are:
+W/2 = 1.8
+H/2 = 2.1
+So the body’s rectangular reference box is:
+x ∈ [-1.8, 1.8]
+y ∈ [-2.1, 2.1]
+This does not mean the M-body is a simple rectangle. It means the rectangle is a reference frame.
+That is very important.
+A reference frame is the invisible box inside which we design the body and face.
+
+4. Face zone math
+The file uses ratios like:
+BODY_FACE_ZONE_TOP_RATIO = 0.24
+BODY_FACE_ZONE_HEIGHT_RATIO = 0.22
+These are fractions of body height.
+That means the face is not placed by arbitrary hardcoded Y values. It is placed relative to body size.
+This is good design.
+4.1 Face top
+Top of body is:
+y_top = H/2 = 2.1
+Distance downward to face zone top:
+0.24 × H = 0.24 × 4.2 = 1.008
+So face top is:
+2.1 - 1.008 = 1.092
+4.2 Face height
+face_height = 0.22 × 4.2 = 0.924
+4.3 Face bottom
+1.092 - 0.924 = 0.168
+4.4 Face center
+(1.092 + 0.168) / 2 = 0.63
+So the face region is vertically centered around:
+y = 0.63
+This means:
+eyes live around upper face
+nose around middle face
+mouth below nose
+So the face zone creates a container region.
+That is the first important math structure.
+
+5. Now the real topic: eye math from the start
+Now let us do this properly.
+You asked:
+like x²/a² + y²/b² for eyes, then how pupil remains inside eyes, etc.
+Yes. This is exactly the correct direction.
+
+6. What is the eye mathematically?
+From the code setup we discussed earlier, the eye is made from a circle that is then stretched by width and height, so visually it behaves like an ellipse, not a perfect circle. The project notes captured that with EYE_WIDTH = 0.42 and EYE_HEIGHT = 0.52
+So mathematically, one eye can be modeled as an ellipse.
+Let the eye center be:
+C = (x0, y0)
+Let:
+a = EYE_WIDTH / 2
+b = EYE_HEIGHT / 2
+Using the values:
+EYE_WIDTH = 0.42
+EYE_HEIGHT = 0.52
+we get:
+a = 0.21
+b = 0.26
+Now the standard equation of an ellipse centered at (x0, y0) is:
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) = 1
+This equation describes the boundary of the eye.
+The inside of the eye is:
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) <= 1
+The outside is:
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) > 1
+That is the first real eye formula.
+
+7. What do a and b really mean?
+In ellipse math:
+a = horizontal semi-axis
+b = vertical semi-axis
+So here:
+a = 0.21
+b = 0.26
+Meaning:
+from eye center to left edge = 0.21
+from eye center to right edge = 0.21
+from eye center to top edge = 0.26
+from eye center to bottom edge = 0.26
+So the eye is taller than it is wide.
+That ratio is:
+b / a = 0.26 / 0.21 ≈ 1.238
+Meaning the vertical half-size is about 23.8% bigger than the horizontal half-size.
+That is why the eye feels slightly tall and alive.
+
+8. Why do we use ellipse math here?
+Because width and height are not equal.
+If width and height were equal, then:
+a = b
+and the shape would be a circle.
+But here:
+0.21 ≠ 0.26
+So it is not a circle.
+That means the correct math is not:
+(x - x0)^2 + (y - y0)^2 <= R^2
+That would be circle math.
+The correct visible-eye math is:
+((x - x0)^2 / 0.21^2) + ((y - y0)^2 / 0.26^2) <= 1
+This is the real eye container.
+
+9. What is the pupil mathematically?
+The pupil is a circle.
+Let the pupil center be:
+P = (px, py)
+Let pupil radius be:
+r = PUPIL_RADIUS = 0.08
+Then pupil boundary is:
+(x - px)^2 + (y - py)^2 = r^2
+So with actual value:
+(x - px)^2 + (y - py)^2 = 0.08^2 = 0.0064
+And the filled pupil disk is:
+(x - px)^2 + (y - py)^2 <= 0.0064
+So:
+eye = ellipse
+pupil = circle
+This is already a richer geometry problem.
+
+10. How is pupil position defined?
+The pupil center is not fixed forever.
+It moves relative to the eye center.
+So if eye center is C = (x0, y0), and gaze offset is d = (dx, dy), then:
+P = C + d
+which means:
+px = x0 + dx
+py = y0 + dy
+This is the clean math model for pupil motion.
+So:
+C says where the eye is placed on the face
+d says where the pupil is looking inside the eye
+This is exactly the correct separation.
+
+11. The real mathematical question
+Now we come to the key problem:
+How do we guarantee the pupil stays inside the eye?
+This is the main geometry question.
+And this is where proper constraint math begins.
+
+12. First solve the simpler case: circular eye
+Before ellipse, do circle first. This is easier and gives intuition.
+Suppose eye were a circle of radius R.
+Suppose pupil were a circle of radius r.
+Eye center = C Pupil center = P
+For the pupil to remain completely inside the eye, the distance between centers must satisfy:
+||P - C|| + r <= R
+Rearrange:
+||P - C|| <= R - r
+This is the famous inside-condition.
+You already started this earlier, and yes, it is correct.
+
+13. Why is R - r the correct answer?
+Let us understand in plain English.
+the big circle has radius R
+the small inner circle has radius r
+if the small circle center moves too far toward the edge, part of it will stick out
+so the center of the small circle must stay inside a smaller safe region
+That smaller safe region has radius:
+R - r
+Why?
+Because from the eye center to the outer boundary is R, but the pupil itself already takes r distance from its own center to its edge.
+So the center is only allowed to go as far as:
+R - r
+That gives the safe-center region.
+This is called a Minkowski erosion idea in advanced geometry, but you do not need that name now.
+For now, just remember:
+outer boundary minus inner radius = safe center boundary
+
+14. Apply that circular idea to your eye numbers
+From the size constants:
+EYE_RADIUS = 0.22
+PUPIL_RADIUS = 0.08
+PUPIL_MAX_OFFSET = 0.07
+So if we use the conceptual circular-eye model:
+R = 0.22
+r = 0.08
+Then max safe distance is:
+R - r = 0.22 - 0.08 = 0.14
+But configured pupil max offset is:
+0.07
+So:
+0.07 < 0.14
+That means the chosen movement is only half of the circular theoretical maximum.
+This is a safety margin.
+
+15. Why not use the full 0.14?
+Because mathematics gives maximum physical possibility.
+But good character design uses aesthetic safety, not full physical limit.
+If the pupil moves all the way near the edge:
+eye looks strained
+expression becomes too extreme
+tiny rendering differences become more visible
+the face can feel unstable
+So mathematically possible is not the same as visually good.
+Thus:
+usable_offset < maximum_offset
+is usually the correct design choice.
+
+16. Now do the correct case: pupil inside an elliptical eye
+This is the real version.
+Eye is not a circle. Eye is an ellipse.
+So the simple circular rule:
+||P - C|| <= R - r
+is only an approximation now.
+We need a better idea.
+
+17. Ellipse boundary again
+Eye interior is:
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) <= 1
+with:
+a = 0.21
+b = 0.26
+Now pupil is a circle of radius r = 0.08.
+We want the entire pupil disk to stay inside the ellipse.
+This is harder than just saying the pupil center stays inside the ellipse.
+Because even if the center is inside, the pupil edge may stick out.
+That is the crucial idea.
+
+18. Simplified safe rule for ellipse
+A very useful beginner-safe rule is:
+shrink the ellipse by the pupil radius in each direction
+So instead of letting the pupil center move in the full eye ellipse:
+((dx)^2 / a^2) + ((dy)^2 / b^2) <= 1
+we restrict it to a smaller “safe ellipse”:
+((dx)^2 / (a - r)^2) + ((dy)^2 / (b - r)^2) <= 1
+Here:
+dx = px - x0
+dy = py - y0
+This means the pupil center must remain inside an inner ellipse whose semi-axes are:
+a_safe = a - r
+b_safe = b - r
+Using your numbers:
+a_safe = 0.21 - 0.08 = 0.13
+b_safe = 0.26 - 0.08 = 0.18
+So a reasonable safe-center ellipse is:
+(dx^2 / 0.13^2) + (dy^2 / 0.18^2) <= 1
+This is a much more meaningful eye-math statement than only talking about R - r.
+
+19. What does this safe ellipse mean physically?
+It means:
+horizontally, pupil center can move less because eye is narrower there
+vertically, pupil center can move a bit more because eye is taller there
+So the allowed pupil-center region is not a circle.
+It is also not a square.
+It is an inner ellipse.
+This is the most natural constraint if the eye itself is elliptical.
+
+20. Compare current code idea with mathematically ideal ellipse-safe rule
+Current design notes mention a max offset constant and square-style clamping idea: |dx| <= 0.07, |dy| <= 0.07 as a practical control.
+So current movement region is approximately:
+-0.07 <= dx <= 0.07
+-0.07 <= dy <= 0.07
+This is a square in offset space.
+That means the allowed center region is:
+[-0.07, 0.07] × [-0.07, 0.07]
+Mathematically ideal for an ellipse would be:
+(dx^2 / 0.13^2) + (dy^2 / 0.18^2) <= 1
+So:
+current practical rule = square clamp
+ideal geometric rule = ellipse clamp
+This distinction is important.
+
+21. Is the current square clamp wrong?
+Not necessarily.
+It is simpler to implement and often safe enough.
+Let us test the worst diagonal case.
+If:
+dx = 0.07
+dy = 0.07
+then center distance from eye center is:
+sqrt(0.07^2 + 0.07^2)
+= sqrt(0.0049 + 0.0049)
+= sqrt(0.0098)
+≈ 0.099
+So diagonal movement is about 0.099.
+Now compare against the circular conceptual safe max:
+0.14
+Still okay there.
+Compare against safe ellipse:
+(0.07^2 / 0.13^2) + (0.07^2 / 0.18^2)
+= 0.0049/0.0169 + 0.0049/0.0324
+≈ 0.2899 + 0.1512
+≈ 0.4411
+This is less than 1.
+So even in the diagonal case, the point (0.07, 0.07) is still inside the safe ellipse.
+That means the chosen value is conservative.
+This is very good.
+
+22. This is the real reason the chosen pupil offset feels stable
+Because the chosen offset 0.07 is small compared with the safe-center limits:
+horizontal safe semi-axis = 0.13
+vertical safe semi-axis = 0.18
+So current choice uses only part of the available space.
+That gives:
+visual calmness
+easier animation
+less risk of ugly edge-touching
+predictable expression
+
+23. What if PUPIL_RADIUS changes?
+This is where the math becomes really educational.
+Suppose pupil radius increases from 0.08 to 0.12.
+Then safe ellipse becomes:
+a_safe = 0.21 - 0.12 = 0.09
+b_safe = 0.26 - 0.12 = 0.14
+Now the center has much less room.
+So larger pupil causes two things at once:
+pupil visually becomes bigger
+pupil motion freedom shrinks
+This is a very important coupling.
+So PUPIL_RADIUS is not only a size parameter. It is also a motion parameter.
+That is why size math and constraint math are tied together.
+
+24. What if EYE_WIDTH changes?
+Suppose eye width increases but height stays same.
+Then:
+a = EYE_WIDTH / 2
+becomes larger.
+That means horizontal safe motion also increases, because:
+a_safe = a - r
+gets larger.
+So a wider eye allows more left-right gaze freedom.
+This is a beautiful design consequence.
+Likewise, if EYE_HEIGHT increases, vertical motion capacity increases.
+So eye shape determines not only appearance, but also allowed gaze geometry.
+
+25. What if PUPIL_MAX_OFFSET is too large?
+Then even if the pupil center is allowed to move by code, visually it may break the eye.
+Three types of break can happen:
+25.1 Geometric break
+Pupil circle crosses eye boundary.
+25.2 Near-edge discomfort
+Even before crossing, the pupil looks too close to the white edge.
+25.3 Expression instability
+Small gaze changes become too dramatic.
+So the mathematically maximum value is often not the best production value.
+
+26. Eye gap math
+From the size set:
+EYE_GAP = 0.42
+EYE_WIDTH = 0.42
+So eye-center spacing is roughly equal to one eye width in the simplified notes.
+Let left eye center be:
+C_L = (-g/2, y_eye)
+Let right eye center be:
+C_R = (+g/2, y_eye)
+with:
+g = 0.42
+So centers are at:
+(-0.21, y_eye), (+0.21, y_eye)
+This makes the face symmetric.
+The midpoint between eyes is:
+(( -0.21 + 0.21 )/2, (y_eye + y_eye)/2) = (0, y_eye)
+So the eye midpoint lies on the vertical center line of the face.
+That midpoint becomes a natural reference for the nose.
+This is good geometry.
+
+27. Why symmetry matters here
+When the two eye centers are mirror images:
+(-d, y), (d, y)
+the face immediately gets bilateral balance.
+That is a strong human-readable signal.
+Then nose can be placed at x = 0, and mouth centered under it.
+So a lot of face design is really symmetry plus vertical offsets.
+
+28. Build the facial layout as a coordinate system
+Now let us describe the whole face mathematically.
+Let the face reference center be around:
+F = (0, 0.63)
+from the face-zone calculation.
+Then we can imagine:
+left eye center: (-g/2, y_eye)
+right eye center: (g/2, y_eye)
+nose center: (0, y_nose)
+mouth center: (0, y_mouth)
+with:
+y_nose < y_eye
+y_mouth < y_nose
+That means the face is organized by:
+mirror symmetry in x
+ordered stacking in y
+This is the deep layout math.
+
+29. How nose and mouth are formed mathematically
+Even if the nose and mouth are simple shapes, the same logic applies.
+29.1 Nose
+A small nose can be modeled as a tiny rounded rectangle or oval-like region centered at (0, y_nose).
+Its width and height control the local face balance.
+If:
+NOSE_WIDTH = 0.14
+NOSE_HEIGHT = 0.20
+then its box is small compared to the eye ellipse, which is exactly why it does not dominate. Those values were captured in the earlier extracted size list.
+29.2 Mouth
+If mouth is a smile arc, then geometrically it is part of a circle or arc segment.
+Its parameters are:
+center of the supporting circle
+radius of the supporting circle
+arc angle
+final placement under nose
+So even the mouth is controlled by shape math plus placement math.
+
+30. The key lesson: every size produces a region
+This is the most important concept I want you to keep.
+Every constant in sizes.py creates one of these:
+a length
+a boundary
+a safe region
+a proportion
+a reach limit
+Examples:
+EYE_WIDTH
+creates horizontal eye extent
+EYE_HEIGHT
+creates vertical eye extent
+PUPIL_RADIUS
+creates pupil disk size
+PUPIL_MAX_OFFSET
+creates allowed pupil-center movement region
+EYE_GAP
+creates spacing between the two eye centers
+So each number is part of a geometry system.
+
+31. The clean eye math summary
+Let me compress the whole eye system into one exact ladder.
+Step 1: eye center
+Choose eye center:
+C = (x0, y0)
+Step 2: eye shape
+Eye is ellipse:
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) <= 1
+where:
+a = EYE_WIDTH/2 = 0.21
+b = EYE_HEIGHT/2 = 0.26
+Step 3: pupil shape
+Pupil is circle:
+(x - px)^2 + (y - py)^2 <= r^2
+where:
+r = PUPIL_RADIUS = 0.08
+Step 4: pupil position
+Pupil center moves by offset:
+P = (px, py) = (x0 + dx, y0 + dy)
+Step 5: safe motion idea
+For circular approximation:
+sqrt(dx^2 + dy^2) <= R - r
+with conceptual R = 0.22
+Step 6: better ellipse-safe idea
+Use inner safe ellipse:
+(dx^2 / (a-r)^2) + (dy^2 / (b-r)^2) <= 1
+which becomes:
+(dx^2 / 0.13^2) + (dy^2 / 0.18^2) <= 1
+Step 7: practical implementation
+Use conservative clamp such as:
+|dx| <= 0.07
+|dy| <= 0.07
+which stays well inside the safe region.
+That is the complete math story.
+
+32. Why this matters beyond eyes
+The same pattern appears everywhere.
+Arms
+Arm endpoint must stay on or within a rotation path about shoulder.
+Legs
+Leg endpoint must stay on or within a rotation path about hip.
+Mouth
+Smile curvature must stay within a readable expressive band.
+Face
+All parts must remain inside a visually balanced face zone.
+So once you understand the eye as:
+shape
+center
+offset
+safe region
+you will understand the rest of the creature much faster.
+
+33. The single best sentence to remember
+The eye system is:
+an ellipse containing a movable circular pupil, whose center is restricted to a smaller safe region so the full pupil remains visually and geometrically inside the eye.
+That is the true math meaning.
+
+34. What you should remember as symbols
+Keep these symbols in your head:
+C = eye center
+P = pupil center
+d = P - C = pupil offset vector
+a = eye half-width
+b = eye half-height
+r = pupil radius
+Then the three most important formulas are:
+Eye interior
+((x - x0)^2 / a^2) + ((y - y0)^2 / b^2) <= 1
+Pupil interior
+(x - px)^2 + (y - py)^2 <= r^2
+Safe pupil-center ellipse
+(dx^2 / (a-r)^2) + (dy^2 / (b-r)^2) <= 1
+These are the real math backbone.
+
+35. Correcting the previous mistake
+The previous explanation was too “component description” heavy.
+The better way is:
+first define shape equation
+then define part center
+then define motion vector
+then define inside-condition
+then define safe region
+then compare actual constants with that safe region
+That is the right study order for you.
+
+36. Best next continuation
+Next, I should do the same depth for the rest of sizes.py, in this order:
+eye system finished with diagrams in words
+nose math as local centered geometry
+mouth math as arc geometry
+face balance as symmetry + vertical ordering
+arms and legs as future rotational geometry
+And I should present it as a proper study chapter, not as scattered notes.

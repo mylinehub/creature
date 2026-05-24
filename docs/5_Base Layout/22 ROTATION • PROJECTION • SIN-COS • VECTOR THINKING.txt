@@ -1,0 +1,769 @@
+22 ROTATION • PROJECTION • SIN/COS • VECTOR THINKING
+========================================================
+
+ORIGINAL CORE GOAL
+========================================================
+
+The original goal was:
+
+understanding rounded rectangle / nose geometry
+inside the MYLINEHUB mascot project.
+
+But while studying nose geometry,
+we discovered a deeper hidden layer:
+
+HOW direction changes during rotation.
+
+This slowly evolved into studying:
+
+- vectors
+- decomposition
+- projection
+- rotation
+- sin/cos intuition
+- directional redistribution
+- trig addition formulas
+
+The REAL hidden question became:
+
+“How does one direction partially survive
+and partially become another direction?”
+
+========================================================
+BIGGEST OVERALL REALIZATION
+========================================================
+
+Trig is NOT really about triangles.
+
+Trig is secretly about:
+
+DIRECTION REDISTRIBUTION DURING ROTATION.
+
+========================================================
+FOUNDATION 1 — POINT VS VECTOR
+========================================================
+
+POINT
+--------------------------------------------------------
+
+A point means:
+
+LOCATION ONLY.
+
+Example:
+
+(3,2)
+
+means:
+
+3 right
+2 up
+
+from origin.
+
+A point answers:
+
+“WHERE?”
+
+--------------------------------------------------------
+VECTOR
+--------------------------------------------------------
+
+A vector means:
+
+DIRECTION + MAGNITUDE
+
+Visual:
+
+→
+
+means:
+movement toward right.
+
+↗
+
+means:
+movement toward right + upward.
+
+A vector answers:
+
+“HOW TO MOVE?”
+
+========================================================
+FOUNDATION 2 — VECTOR COMPONENTS
+========================================================
+
+Huge realization:
+
+One vector can secretly contain
+multiple directional movements simultaneously.
+
+Example:
+
+↗
+
+contains BOTH:
+
+- horizontal movement
+- vertical movement
+
+This became the foundation of:
+
+- projection
+- decomposition
+- trig
+- graphics math
+
+========================================================
+COMPONENT DECOMPOSITION
+========================================================
+
+Example vector:
+
+(3,2)
+
+means:
+
+horizontal component = 3
+vertical component = 2
+
+The diagonal vector can be rebuilt from:
+
+horizontal part
++
+vertical part
+
+Visual:
+
+•
+/ |
+/ |
+/ |
++-------•
+
+Slanted line:
+full vector.
+
+Bottom:
+horizontal component.
+
+Side:
+vertical component.
+
+========================================================
+FOUNDATION 3 — WHAT IS AN AXIS?
+========================================================
+
+Axis means:
+
+REFERENCE DIRECTION.
+
+x-axis:
+horizontal reference.
+
+y-axis:
+vertical reference.
+
+Coordinates secretly answer:
+
+“How much movement agrees
+with each axis?”
+
+THIS later became projection.
+
+========================================================
+FOUNDATION 4 — WHAT IS PROJECTION?
+========================================================
+
+This was the biggest struggle area.
+
+Projection is NOT:
+
+“random perpendicular dropping.”
+
+Projection means:
+
+“How much of this direction survives
+along another direction?”
+
+OR:
+
+“How much does this vector agree
+with this axis?”
+
+========================================================
+SHADOW INTUITION
+========================================================
+
+Projection behaves like shadow.
+
+Suppose stick tilted:
+
+/
+/
+--/
+
+Question:
+
+How much still points horizontally?
+
+Horizontal shadow:
+horizontal projection.
+
+Question:
+
+How much still points vertically?
+
+Vertical shadow:
+vertical projection.
+
+========================================================
+FOUNDATION 5 — WHAT COSINE REALLY IS
+========================================================
+
+BIGGEST REALIZATION:
+
+Cosine does NOT fundamentally mean:
+
+“horizontal.”
+
+That was the major confusion.
+
+TRUE meaning:
+
+cosine measures SAME-DIRECTION AGREEMENT.
+
+OR:
+
+“How much of old direction still survives?”
+
+========================================================
+EXAMPLE
+========================================================
+
+Suppose vector originally:
+
+→
+
+Now rotated:
+
+↗
+
+Question:
+
+How much still agrees with horizontal direction?
+
+Cosine answers that.
+
+========================================================
+COSINE AS SURVIVAL FRACTION
+========================================================
+
+If:
+
+cos(60°) = 0.5
+
+This literally means:
+
+Only 50% of direction
+still agrees horizontally.
+
+This is why cosine behaves like:
+
+SURVIVING ALIGNMENT FRACTION.
+
+========================================================
+FOUNDATION 6 — WHAT SINE REALLY IS
+========================================================
+
+Second huge realization:
+
+Sine does NOT fundamentally mean:
+
+“vertical.”
+
+TRUE meaning:
+
+Sine measures PERPENDICULAR EMERGENCE.
+
+OR:
+
+“How much direction leaked into perpendicular axis?”
+
+========================================================
+EXAMPLE
+========================================================
+
+Original vector:
+
+→
+
+After rotation:
+
+↗
+
+Question:
+
+How much NEW upwardness appeared?
+
+Sine answers that.
+
+========================================================
+THE TRUE MASTER INTERPRETATION
+========================================================
+
+COSINE
+--------------------------------------------------------
+
+same-direction survival
+
+parallel agreement
+
+remaining alignment
+
+--------------------------------------------------------
+SINE
+--------------------------------------------------------
+
+cross-direction leakage
+
+perpendicular emergence
+
+new axis creation
+
+========================================================
+FOUNDATION 7 — WHY MULTIPLICATION APPEARS
+========================================================
+
+This became another major confusion.
+
+WHY:
+
+amount × cosine ?
+
+========================================================
+REALIZATION
+========================================================
+
+Cosine is NOT amount.
+
+Cosine is FRACTION.
+
+Example:
+
+Vector length = 10
+
+Suppose:
+
+50% survives horizontally.
+
+Then surviving horizontal amount:
+
+10 × 0.5 = 5
+
+Multiplication means:
+
+existing amount
+×
+surviving alignment fraction
+
+========================================================
+DEEPEST PROJECTION INTERPRETATION
+========================================================
+
+Projection is secretly:
+
+DIRECTIONAL FILTERING.
+
+Question:
+
+“How much survives along this axis?”
+
+Cosine provides the survival fraction.
+
+========================================================
+FOUNDATION 8 — CONNECTION TO PROBABILITY
+========================================================
+
+Huge insight:
+
+Projection multiplication emotionally resembles
+probability multiplication.
+
+========================================================
+PROBABILITY
+========================================================
+
+50% survive first filter.
+
+Then:
+50% survive second filter.
+
+Result:
+
+0.5 × 0.5 = 0.25
+
+========================================================
+PROJECTION
+========================================================
+
+50% direction survives first alignment.
+
+Then:
+50% survives second alignment.
+
+Again multiplication appears.
+
+========================================================
+DEEPEST CONNECTION
+========================================================
+
+Both systems are:
+
+SURVIVAL FILTERING SYSTEMS.
+
+Difference:
+
+Probability:
+random survival.
+
+Projection:
+directional survival.
+
+========================================================
+FOUNDATION 9 — WHAT ROTATION REALLY DOES
+========================================================
+
+Massive realization:
+
+Rotation redistributes directional agreement.
+
+When vector rotates:
+
+- some old direction survives
+- some new perpendicular direction appears
+
+========================================================
+EXAMPLE
+========================================================
+
+Original:
+
+→
+
+After rotation:
+
+↗
+
+Now:
+
+less pure horizontalness
+more verticalness
+
+Rotation redistributes component balance.
+
+========================================================
+FOUNDATION 10 — UNIT CIRCLE INTUITION
+========================================================
+
+Unit circle radius:
+
+1
+
+Every rotated vector on unit circle has:
+
+same magnitude
+different direction
+
+========================================================
+SIN/COS TABLE
+========================================================
+
+0°
+cos = 1
+sin = 0
+
+fully horizontal
+
+--------------------------------------------------------
+
+45°
+cos ≈ 0.707
+sin ≈ 0.707
+
+equal horizontal & vertical
+
+--------------------------------------------------------
+
+90°
+cos = 0
+sin = 1
+
+fully vertical
+
+========================================================
+HUGE REALIZATION
+========================================================
+
+Angles change linearly.
+
+BUT:
+
+sin/cos values do NOT.
+
+Because circular projection geometry is nonlinear.
+
+========================================================
+WHY 45° DOES NOT GIVE 0.5
+========================================================
+
+Major realization:
+
+45° is halfway in ANGLE SPACE.
+
+NOT halfway in PROJECTION SPACE.
+
+At 45°:
+
+horizontal = vertical
+
+So:
+
+x² + y² = 1
+
+with:
+
+x = y
+
+gives:
+
+2x² = 1
+
+x = 1/√2 ≈ 0.707
+
+========================================================
+FOUNDATION 11 — THE TRUE MEANING OF sin(a+b)
+========================================================
+
+This became the deepest study section.
+
+========================================================
+FORMULA
+========================================================
+
+sin(a+b)
+=
+sin(a)cos(b)
++
+cos(a)sin(b)
+
+========================================================
+REAL MEANING
+========================================================
+
+Final upwardness after two rotations combine.
+
+========================================================
+FIRST TERM
+========================================================
+
+sin(a)cos(b)
+
+Meaning:
+
+old upwardness
+×
+upward survival fraction
+
+========================================================
+SECOND TERM
+========================================================
+
+cos(a)sin(b)
+
+Meaning:
+
+old horizontalness
+×
+new upwardness created
+
+========================================================
+WHY ADDITION?
+========================================================
+
+Because BOTH contributions point upward.
+
+========================================================
+TRUE INTERPRETATION
+========================================================
+
+Final upward direction
+=
+surviving old upwardness
++
+new upwardness emerging from horizontal
+
+========================================================
+FOUNDATION 12 — THE TRUE MEANING OF cos(a+b)
+========================================================
+
+Formula:
+
+cos(a+b)
+=
+cos(a)cos(b)
+-
+sin(a)sin(b)
+
+========================================================
+INTERPRETATION
+========================================================
+
+new horizontalness
+=
+surviving old horizontalness
+-
+vertical leakage into opposite horizontal direction
+
+========================================================
+WHY MINUS?
+========================================================
+
+Because vertical leakage points opposite horizontal direction.
+
+========================================================
+FOUNDATION 13 — BIGGEST CONFUSION RESOLVED
+========================================================
+
+Huge confusion:
+
+“Why cosine for vertical survival?”
+
+Answer:
+
+Cosine is NOT married to horizontal axis.
+
+Cosine means:
+
+PARALLEL AGREEMENT.
+
+Sine means:
+
+PERPENDICULAR COMPONENT.
+
+========================================================
+TRUE DEFINITIONS
+========================================================
+
+COSINE
+--------------------------------------------------------
+
+parallel component
+
+same-direction agreement
+
+--------------------------------------------------------
+SINE
+--------------------------------------------------------
+
+perpendicular component
+
+cross-direction emergence
+
+========================================================
+THIS WAS THE MOST IMPORTANT BREAKTHROUGH
+========================================================
+
+sin/cos are NOT fundamentally:
+
+horizontal vs vertical.
+
+They are fundamentally:
+
+parallel vs perpendicular decomposition.
+
+========================================================
+FOUNDATION 14 — WHY THIS MATTERS FOR GRAPHICS
+========================================================
+
+Graphics engines constantly ask:
+
+“How much of this direction survives
+along another direction?”
+
+This is the root of:
+
+- projection
+- dot product
+- normals
+- rotation matrices
+- camera transforms
+- bezier curves
+- smoothing
+- rounded corners
+- arc generation
+- nose geometry
+
+========================================================
+FOUNDATION 15 — CONNECTION TO space_ops.py
+========================================================
+
+All future vector math depends on these intuitions.
+
+Upcoming concepts:
+
+- dot product
+- cross product
+- normalize
+- angle_between_vectors
+- rotate_vector
+- projection
+- normals
+- interpolation
+- rotations
+
+ALL secretly depend on:
+
+DIRECTIONAL AGREEMENT.
+
+========================================================
+BIGGEST FINAL REALIZATION
+========================================================
+
+Trig formulas are NOT random symbolic identities.
+
+They are:
+
+ROTATION DECOMPOSITION EQUATIONS.
+
+They track:
+
+- what direction survives
+- what direction leaks
+- how components redistribute
+- how alignment changes during rotation
+
+========================================================
+THE TRUE CORE OF EVERYTHING
+========================================================
+
+The hidden master question behind all this is:
+
+“How much does one direction agree
+with another direction?”
+
+THAT is secretly the root of:
+
+- projection
+- cosine
+- sine
+- dot product
+- rotation
+- graphics math
+- geometry engines
+- smooth curves
+- rounded rectangle nose geometry
+
+========================================================
+END OF REVISION DOCUMENT
+========================================================

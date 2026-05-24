@@ -1,0 +1,169 @@
+7- Manim CLI Commands & Config
+
+🚀 Manim CLI Commands & Config — Deep Developer Guide
+
+🧠 1. Mental Model (Start Here)
+Before commands, understand this:
+CLI Command → parse_cli() → args (Namespace)
+           → initialize_manim_config()
+           → merge + update
+           → ONE OBJECT → manim_config
+           → used everywhere
+👉 Everything in Manim depends on ONE final object:
+manim_config
+
+🧭 2. Execution Flow (Real Architecture)
+Terminal
+  │
+  ▼
+manimgl file.py SceneName -flags
+  │
+  ▼
+manimlib/__main__.py
+  │
+  ▼
+parse_cli()  →  args (Namespace)
+  │
+  ▼
+initialize_manim_config()
+  │
+  ├── load default_config.yml
+  ├── load custom_config.yml
+  ├── load --config_file
+  │
+  ├── merge_dicts_recursively()
+  │
+  ├── update_directory_config()
+  ├── update_window_config()
+  ├── update_camera_config()
+  ├── update_file_writer_config()
+  ├── update_scene_config()
+  ├── update_run_config()
+  ├── update_embed_config()
+  │
+  ▼
+manim_config  (FINAL OBJECT)
+  │
+  ▼
+Scene Execution Engine
+
+🧱 3. Core Files Involved
+￼
+⚙️ 4. CLI → args (Namespace)
+Example Command
+manimgl logo_intro.py LogoIntro -r 1920x1080 --fps 60 -c black -t
+Converted to Python Object
+args = Namespace(
+    file="logo_intro.py",
+    scene_names=["LogoIntro"],
+    resolution="1920x1080",
+    fps=60,
+    color="black",
+    transparent=True,
+    write_file=False,
+)
+👉 This object is passed into config system.
+
+🧩 5. Config Creation (Important)
+Function
+initialize_manim_config()
+What It Does
+￼
+🧠 6. Final Object
+manim_config = initialize_manim_config()
+🔥 Key Truth
+All configs become ONE object.
+
+Structure Example
+manim_config = {
+    directories: {...},
+    window: {...},
+    camera: {...},
+    file_writer: {...},
+    scene: {...},
+    run: {...},
+    embed: {...}
+}
+
+📦 7. Config Sections Explained
+￼
+🧮 8. CLI Commands (Full Table)
+
+🎬 8.1 File & Scene
+￼
+🎥 8.2 Resolution & Quality
+￼
+🎨 8.3 Visual Control
+￼
+📁 8.4 Output Control
+￼
+🖥️ 8.5 Window
+￼
+⚙️ 8.6 Execution Control
+￼
+🔧 8.7 Debug / Dev
+￼
+🔄 9. Config Merge Flow
+default_config.yml
+        ↓
+custom_config.yml
+        ↓
+--config_file
+        ↓
+CLI arguments
+        ↓
+FINAL CONFIG
+
+🧠 10. Important Concept — Mutation
+Inside update functions:
+camera_config = config.camera
+camera_config.fps = 60
+👉 No new object created 👉 Same object updated
+
+Visual
+config
+ └── camera
+      ├── fps = 30
+
+camera_config ─────┐
+                   ▼
+               SAME OBJECT
+
+camera_config.fps = 60
+
+config.camera.fps → 60
+
+🔍 11. Example Flow
+Command
+manimgl file.py Scene -r 1000x300 --fps 60 -c black -t
+Final camera config
+camera_config = {
+    resolution: (1000, 300),
+    fps: 60,
+    background_color: black,
+    background_opacity: 0.0
+}
+
+📁 12. Where to Put Config Files
+Project Structure
+my-project/
+ ├── file.py
+ ├── custom_config.yml   ✅ auto-loaded
+
+OR use CLI
+--config_file config.yml
+
+🧠 13. Key Concepts to Remember
+￼
+🎯 14. Final Summary
+CLI → args
+args → config builder
+config builder → merge YAML
+merge → update functions
+update → mutate sections
+return → ONE object
+
+🔥 One Line
+Manim CLI builds one global config object (manim_config) by merging YAML files and CLI arguments, then mutating each section for runtime use.
+
+

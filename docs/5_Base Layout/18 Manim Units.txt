@@ -1,0 +1,138 @@
+18 Manim Units
+
+Manim Units — Complete Developer Mental Model
+This document explains how Manim units work, how they are derived from pixel resolution, and how they affect positioning, size, spacing, and scaling.
+
+1. Two Worlds in Manim
+Manim separates two systems:
+1. Pixel Space (Rendering World)
+Example:
+1920 × 1080 pixels
+This is:
+Real output size
+Used by screen/video
+Not used for writing geometry
+
+2. Frame Space (Manim World)
+Example:
+Width ≈ 14.22 units
+Height = 8 units
+This is:
+Mathematical coordinate system
+Where ALL objects live
+
+2. How Frame is Built (Step-by-Step)
+Step 1 — Pixel Resolution
+DEFAULT_PIXEL_WIDTH  = 1920
+DEFAULT_PIXEL_HEIGHT = 1080
+Step 2 — Aspect Ratio
+ASPECT_RATIO = width / height
+             = 1920 / 1080
+             = 1.777...
+Step 3 — Choose Frame Height (Design Choice)
+FRAME_HEIGHT = 8.0
+This is important:
+👉 This is NOT derived 👉 This is chosen by Manim (or you can change it)
+
+Step 4 — Compute Frame Width
+FRAME_WIDTH = FRAME_HEIGHT × ASPECT_RATIO
+            = 8 × 1.777
+            ≈ 14.22
+
+Final Frame
+x range: -7.11 → +7.11
+y range: -4 → +4
+This becomes the Manim coordinate system.
+
+3. What is a Manim Unit?
+1 Manim unit = 1 step in this coordinate system
+Examples:
+Dot().move_to([1, 2, 0])
+Means:
+x = 1 unit right
+y = 2 units up
+
+4. Relation Between Units and Pixels
+From earlier:
+1080 pixels = 8 units
+So:
+1 unit = 1080 / 8 = 135 pixels
+
+Conversion Table
+￼
+5. Direction System (How Units Move)
+UP    = [0, 1, 0]
+RIGHT = [1, 0, 0]
+LEFT  = [-1, 0, 0]
+DOWN  = [0, -1, 0]
+These are unit vectors.
+Example:
+circle.shift(UP * 2)
+Meaning:
+move 2 units upward
+
+6. Size Using Units
+Square(side_length=2)
+Means:
+square width = 2 units
+Relative to frame:
+2 / 8 = 25% of screen height
+
+7. Spacing Using Units (Buffers)
+label.next_to(circle, RIGHT, buff=0.1)
+Meaning:
+gap = 0.1 units
+Compare:
+0.1 / 8 = 1.25% of screen height
+
+8. Your Nose Example (Very Important)
+RoundedRectangle(width=0.14, height=0.20)
+Compare to frame:
+FRAME_HEIGHT = 8
+So:
+height = 0.20 / 8 = 2.5% of screen
+width  = 0.14 / 14.22 ≈ 1% of screen width
+
+9. Why Manim Uses Units Instead of Pixels
+Problem with pixels
+move_to([317, 842])
+Hard to reason.
+
+With units
+move_to([1, 2])
+Easy to reason.
+
+10. What Happens Internally
+You write:
+move 1 unit
+Manim converts:
+1 unit → ~135 pixels
+
+11. Changing Frame Height (Very Important)
+If you change:
+frame_height: 16
+Then:
+new y range: -8 → +8
+
+Effect
+Everything becomes visually smaller:
+object size / frame height decreases
+Example:
+0.20 height before → 2.5% of screen
+0.20 height now → 1.25% of screen
+
+12. Developer Mental Model
+Manim is designed so that:
+You describe relationships, not pixels
+Example:
+circle.next_to(square, RIGHT, buff=0.2)
+Instead of:
+circle.move_to([312, 547])
+
+13. Final Mental Model
+Pixels = rendering resolution
+Frame  = math coordinate system
+Units  = distances inside that system
+
+14. One-Line Summary
+Manim units are normalized distances defined by FRAME_HEIGHT and FRAME_WIDTH, allowing you to build geometry independent of pixel resolution.

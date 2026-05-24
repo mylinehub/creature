@@ -1,0 +1,475 @@
+14- Math For Eyes - Deeper
+
+Yes. Let us do only eyes now.
+No other parts.
+No body.
+No face zone.
+Only:
+what shape the eye is
+what shape the pupil is
+how pupil moves
+how we know it stays inside
+why these numbers are chosen
+I will go very slowly.
+
+1. First forget code
+Forget file for a moment.
+Imagine one eye drawn on paper.
+There are two objects:
+eye white
+pupil
+So mathematically we have:
+one outer shape
+one inner shape
+The outer shape contains the inner shape.
+That is the whole problem.
+
+2. What is the eye shape?
+In this creature, the eye is not treated like a perfect round ball visually.
+It is stretched.
+So mathematically, the eye is best thought of as an ellipse.
+
+3. What is an ellipse?
+You know circle:
+x^2 + y^2 = R^2
+That means distance from center is same in all directions.
+But ellipse is different.
+It has:
+one horizontal size
+one vertical size
+So it can be wider or taller.
+Its standard equation is:
+x^2 / a^2 + y^2 / b^2 = 1
+If center is not at origin, then:
+(x - x0)^2 / a^2 + (y - y0)^2 / b^2 = 1
+Where:
+(x0, y0) = center of eye
+a = horizontal half-size
+b = vertical half-size
+
+4. What do a and b mean?
+Suppose eye center is at (x0, y0).
+Then:
+left edge is at x0 - a
+right edge is at x0 + a
+top edge is at y0 + b
+bottom edge is at y0 - b
+So:
+a controls left-right reach
+b controls up-down reach
+If a = b, it becomes a circle.
+If a ≠ b, it is an ellipse.
+
+5. Use your eye numbers
+From the project notes:
+EYE_WIDTH = 0.42
+EYE_HEIGHT = 0.52
+So full width is 0.42, full height is 0.52.
+Half-sizes are:
+a = EYE_WIDTH / 2 = 0.42 / 2 = 0.21
+b = EYE_HEIGHT / 2 = 0.52 / 2 = 0.26
+So the eye equation becomes:
+(x - x0)^2 / 0.21^2 + (y - y0)^2 / 0.26^2 = 1
+That is the boundary of the eye.
+And the inside of the eye is:
+(x - x0)^2 / 0.21^2 + (y - y0)^2 / 0.26^2 <= 1
+This <= 1 means:
+all points inside the eye
+all points on the edge
+not outside
+
+6. Why this equation makes an eye shape
+Let us test special points.
+6.1 Rightmost point
+Take:
+x = x0 + 0.21
+y = y0
+Then:
+(x - x0)^2 / 0.21^2 = 0.21^2 / 0.21^2 = 1
+(y - y0)^2 / 0.26^2 = 0
+So total:
+1 + 0 = 1
+So this point lies on the boundary.
+That is right edge.
+
+6.2 Top point
+Take:
+x = x0
+y = y0 + 0.26
+Then:
+0 + 0.26^2 / 0.26^2 = 1
+So top point lies on boundary.
+
+6.3 Center point
+Take:
+x = x0
+y = y0
+Then:
+0 + 0 = 0
+And 0 <= 1, so center is inside.
+Good.
+
+7. So eye math is now clear?
+Eye is:
+(x - x0)^2 / a^2 + (y - y0)^2 / b^2 <= 1
+For your eye:
+a = 0.21
+b = 0.26
+So:
+(x - x0)^2 / 0.0441 + (y - y0)^2 / 0.0676 <= 1
+because:
+0.21^2 = 0.0441
+0.26^2 = 0.0676
+That is the eye container.
+
+8. What is the pupil mathematically?
+The pupil is much simpler.
+It is a circle.
+Suppose pupil center is (px, py) and pupil radius is r.
+Then pupil equation is:
+(x - px)^2 + (y - py)^2 = r^2
+And pupil interior is:
+(x - px)^2 + (y - py)^2 <= r^2
+From your values:
+PUPIL_RADIUS = 0.08
+So pupil boundary is:
+(x - px)^2 + (y - py)^2 = 0.08^2
+That is:
+(x - px)^2 + (y - py)^2 = 0.0064
+And filled pupil is:
+(x - px)^2 + (y - py)^2 <= 0.0064
+So now we have:
+eye = ellipse
+pupil = circle
+
+
+9. What is the real problem now?
+The real problem is:
+How do we place the pupil so the entire pupil circle remains inside the eye ellipse?
+This is the key.
+Not “is the pupil center inside eye?”
+But:
+is the whole pupil disk inside eye?
+That is harder.
+
+10. First: where is the pupil center?
+The pupil is not fixed.
+It moves.
+So let eye center be:
+C = (x0, y0)
+Let pupil center be:
+P = (px, py)
+Then define offset vector:
+d = (dx, dy)
+with:
+P = C + d
+So:
+px = x0 + dx
+py = y0 + dy
+This means:
+C = center of eye
+d = how far the pupil moved from eye center
+P = final pupil center
+This is very important.
+
+11. First solve easier version: circle eye + circle pupil
+Before ellipse, we do simple version.
+Suppose outer eye were circle of radius R.
+Suppose inner pupil were circle of radius r.
+Then the pupil stays fully inside if:
+distance between centers + pupil radius <= eye radius
+In symbols:
+||P - C|| + r <= R
+Rearrange:
+||P - C|| <= R - r
+This is the core safe formula.
+
+12. Why R - r?
+This must be felt properly.
+Imagine:
+big circle radius R
+small circle radius r
+If small circle center goes too far toward edge, then small circle sticks out.
+The small circle center cannot use full R.
+It must leave room for its own radius r.
+So center is allowed only up to:
+R - r
+That is why.
+This is not random.
+It comes from:
+outer boundary distance minus inner object radius
+
+13. Apply circle idea to your numbers
+From project notes:
+EYE_RADIUS = 0.22
+PUPIL_RADIUS = 0.08
+PUPIL_MAX_OFFSET = 0.07
+So if we temporarily think eye is circular:
+R = 0.22
+r = 0.08
+Then max safe distance is:
+R - r = 0.22 - 0.08 = 0.14
+So theoretically pupil center could move up to distance 0.14 from eye center.
+But actual chosen offset is:
+0.07
+So:
+0.07 < 0.14
+Meaning current design uses only half of circular max.
+
+14. But our eye is ellipse, not circle
+Exactly.
+So R - r is only a simple teaching idea.
+Real eye is ellipse.
+So we need a better model.
+
+15. What would be wrong if we only checked pupil center inside ellipse?
+Suppose we only say:
+(px - x0)^2 / a^2 + (py - y0)^2 / b^2 <= 1
+That only checks the center of the pupil.
+But pupil has radius 0.08.
+So even if center is inside, the top or side of pupil may still cross boundary.
+So center-inside is not enough.
+We need whole circle-inside.
+That is the key jump.
+
+16. Safe ellipse idea
+For a beginner-friendly safe rule, we shrink the eye ellipse inward.
+Original eye semi-axes:
+a = 0.21
+b = 0.26
+Pupil radius:
+r = 0.08
+So safe center semi-axes become:
+a_safe = a - r = 0.21 - 0.08 = 0.13
+b_safe = b - r = 0.26 - 0.08 = 0.18
+Then a good safe rule for pupil center is:
+(dx)^2 / 0.13^2 + (dy)^2 / 0.18^2 <= 1
+This is the safe-center ellipse.
+This means:
+pupil center can move inside this smaller ellipse
+then the whole pupil circle remains safely inside the eye
+This is the real geometric idea you wanted.
+
+17. Why do we subtract r from both axes?
+Because the pupil itself has thickness in every direction.
+If the eye reaches:
+0.21 horizontally from center
+0.26 vertically from center
+then the pupil center cannot go that far.
+It must stop earlier by its own radius.
+So:
+horizontal center reach becomes 0.21 - 0.08 = 0.13
+vertical center reach becomes 0.26 - 0.08 = 0.18
+That gives the smaller safe zone.
+This is same idea as R - r, but now done separately for ellipse directions.
+
+18. Why is safe region itself an ellipse?
+Because original eye is ellipse.
+When you shrink it evenly in this simple model, the center-safe zone also behaves like an ellipse.
+So:
+outer shape = eye ellipse
+inner allowed-center region = smaller ellipse
+That is the cleanest way to think.
+
+19. Now compare actual offset 0.07
+Current configuration uses:
+PUPIL_MAX_OFFSET = 0.07
+So practical movement is around:
+|dx| <= 0.07
+|dy| <= 0.07
+Now compare with safe ellipse axes:
+horizontal safe reach = 0.13
+vertical safe reach = 0.18
+So 0.07 is much smaller than both.
+That means the chosen movement is conservative.
+Good.
+
+20. Let us test one actual point
+Take:
+dx = 0.07
+dy = 0
+Check safe ellipse:
+0.07^2 / 0.13^2 + 0 / 0.18^2
+= 0.0049 / 0.0169
+≈ 0.2899
+This is less than 1.
+So safe.
+Now try vertical:
+dx = 0
+dy = 0.07
+Then:
+0 + 0.07^2 / 0.18^2
+= 0.0049 / 0.0324
+≈ 0.1512
+Also less than 1.
+So safe.
+
+21. Test diagonal case
+Take:
+dx = 0.07
+dy = 0.07
+Then:
+0.07^2 / 0.13^2 + 0.07^2 / 0.18^2
+= 0.0049/0.0169 + 0.0049/0.0324
+≈ 0.2899 + 0.1512
+≈ 0.4411
+Still less than 1.
+So diagonal also stays inside safe ellipse.
+This is very important.
+It means 0.07 is comfortably safe.
+
+22. So what is current movement region?
+In simple implementation style, if x and y are clamped separately, then actual allowed offsets are:
+-0.07 <= dx <= 0.07
+-0.07 <= dy <= 0.07
+This forms a square in offset space.
+That means allowed pupil-center positions make a box.
+So current code-style practical region is not exactly an ellipse.
+It is a square.
+But because that square lies inside the safe ellipse enough, it still works.
+
+23. Why square clamp is easier
+Because code for separate x and y is simple:
+dx = clamp(dx, -0.07, 0.07)
+dy = clamp(dy, -0.07, 0.07)
+That is easier than computing exact ellipse projection every time.
+So many systems use simple clamp first.
+The important thing is whether the chosen clamp stays visually safe.
+Here it does.
+
+24. Why not allow larger than 0.07 if safe ellipse allows more?
+Because maximum possible is not same as best-looking.
+If pupil gets too near edge:
+eye looks stressed
+expression becomes harsh
+small movement feels exaggerated
+highlight and white space become uneven
+So the artist/designer often chooses:
+actual_allowed_motion < theoretical_safe_motion
+That gives calmness.
+
+25. The complete eyes logic in one chain
+Let me write the full logic very simply.
+Step 1
+Eye has center:
+C = (x0, y0)
+Step 2
+Eye shape is ellipse:
+(x - x0)^2 / 0.21^2 + (y - y0)^2 / 0.26^2 <= 1
+Step 3
+Pupil has center:
+P = (px, py)
+Step 4
+Pupil shape is circle:
+(x - px)^2 + (y - py)^2 <= 0.08^2
+Step 5
+Pupil center moves by offset:
+P = C + (dx, dy)
+Step 6
+To keep pupil fully inside eye, use safe-center ellipse:
+dx^2 / 0.13^2 + dy^2 / 0.18^2 <= 1
+Step 7
+Practical design chooses smaller clamp:
+|dx| <= 0.07
+|dy| <= 0.07
+So the actual design lives comfortably inside the mathematically safe region.
+That is the eye math.
+
+26. Why EYE_RADIUS = 0.22 still exists
+You may ask:
+If eye is ellipse using width and height, why EYE_RADIUS = 0.22?
+Good question.
+Because it still gives a conceptual “base eye size”.
+Notice:
+EYE_WIDTH / 2 = 0.21
+EYE_RADIUS = 0.22
+EYE_HEIGHT / 2 = 0.26
+So 0.22 is near the eye’s average scale.
+It can help think about:
+pupil ratio
+approximate circular safety
+default size intuition
+So it is like a reference size, even if visible eye is elliptical.
+
+27. One very important understanding
+There are actually three eye math models here.
+Model A: conceptual circle model
+Easy teaching model:
+||P - C|| <= R - r
+Good for intuition.
+Model B: actual visible eye model
+Rendered eye behaves like ellipse:
+(x - x0)^2 / a^2 + (y - y0)^2 / b^2 <= 1
+Good for shape truth.
+Model C: practical code clamp model
+Implementation may use simple x/y clamping:
+|dx| <= m, |dy| <= m
+Good for coding simplicity.
+You must not mix them blindly.
+Each has a role.
+This is very important.
+
+28. The single best picture in words
+Imagine this:
+big vertical oval = eye
+small black circle = pupil
+invisible smaller oval inside = safe region for pupil center
+pupil center moves only inside that smaller invisible oval
+That is the correct geometric picture.
+
+29. What changes if pupil gets bigger?
+Suppose pupil radius becomes 0.12.
+Then safe axes become:
+a_safe = 0.21 - 0.12 = 0.09
+b_safe = 0.26 - 0.12 = 0.14
+So:
+pupil becomes bigger
+safe movement region becomes smaller
+This is very important.
+So pupil size and pupil motion are linked.
+Bigger pupil means less movement freedom.
+
+30. What changes if eye becomes wider?
+Suppose eye width becomes 0.50.
+Then:
+a = 0.25
+If pupil radius stays 0.08, then:
+a_safe = 0.25 - 0.08 = 0.17
+So more horizontal movement becomes possible.
+This shows:
+eye geometry controls gaze freedom
+That is deep and important.
+
+31. Tiny summary
+Only eyes:
+eye white is ellipse
+pupil is circle
+pupil center is offset from eye center
+to keep pupil fully inside, pupil center must stay inside a smaller safe region
+simple circle idea gives R - r
+better ellipse idea gives inner safe ellipse
+actual chosen offset 0.07 is comfortably safe
+
+32. The three formulas I want you to remember now
+Please keep only these three:
+Eye
+(x - x0)^2 / a^2 + (y - y0)^2 / b^2 <= 1
+Pupil
+(x - px)^2 + (y - py)^2 <= r^2
+Safe pupil-center region
+dx^2 / (a-r)^2 + dy^2 / (b-r)^2 <= 1
+with:
+px = x0 + dx
+py = y0 + dy
+This is the whole eye system.
+
+33. Let me check your understanding with one simple question
+Suppose:
+a = 0.21
+b = 0.26
+r = 0.08
+Can you see why the safe horizontal center movement is 0.13 and safe vertical center movement is 0.18?
+It is simply:
+0.21 - 0.08 = 0.13
+0.26 - 0.08 = 0.18
+If this exact subtraction idea is clear, then the eye math has started becoming solid.

@@ -1,0 +1,220 @@
+19 Line Intersection — Confusions, Realizations, and Function Flow
+Main Function
+p1, p2 = line1
+p3, p4 = line2
+
+v1 = p2 - p1
+v2 = p4 - p3
+
+matrix = np.array([
+    [v1[0], -v2[0]],
+    [v1[1], -v2[1]]
+])
+
+rhs = p3 - p1
+
+t, s = np.linalg.solve(matrix, rhs)
+
+return p1 + t * v1
+
+One-Line Purpose of Each Step
+￼
+Main Confusion 1
+“B-A gives magnitude, but where is direction?”
+This confusion happened because vectors secretly contain TWO things simultaneously:
+magnitude
+direction
+Example:
+B - A = (6,8)
+This means:
+move +6 in x
+move +8 in y
+The magnitude is:
+sqrt(6² + 8²)
+But the direction is hidden in the coordinate ratio:
+8 / 6
+Vectors:
+(1,1)
+(10,10)
+(100,100)
+all point SAME direction because coordinate ratios match.
+Magnitude changes:
+how FAR movement is
+Direction changes:
+which WAY movement goes
+
+Main Confusion 2
+“How can one vector define whole line?”
+A line is not one point.
+A line is:
+starting point + repeated movement rule
+Direction vector gives repeated movement pattern.
+Example:
+v1 = (6,12)
+means:
+move +6 x
+move +12 y
+Now repeat this movement:
+(2,5)
+(8,17)
+(14,29)
+(20,41)
+...
+This repeated movement creates the line.
+
+Main Confusion 3
+“Why subtract points?”
+Subtracting points measures:
+required change
+Example:
+(8,17) - (2,5)
+means:
+How must we move
+from first point to second?
+Result:
+(6,12)
+So subtraction naturally creates displacement vector.
+
+Main Confusion 4
+“Why are t and s not x/y coordinates?”
+t and s are NOT geometric coordinates.
+They are:
+movement parameters
+Example:
+L1 = p1 + t*v1
+t controls:
+how far move along line1
+If:
+t = 0
+we stay at start point.
+If:
+t = 1
+we move one full direction vector.
+If:
+t = 0.5
+we move half direction vector.
+So:
+t,s = travel amounts
+NOT coordinates.
+
+Main Confusion 5
+“Why does matrix row use x-components together?”
+Huge realization:
+MATRIX ROWS ARE NOT VECTORS.
+They are:
+equations
+First row stores:
+x-coordinate equation coefficients
+Second row stores:
+y-coordinate equation coefficients
+Example:
+v1 = (6,12)
+v2 = (12,-18)
+x equation becomes:
+6t - 12s = -1
+because:
+6 comes from x-part of line1 movement
+12 comes from x-part of line2 movement
+So first row becomes:
+[6,-12]
+Similarly:
+y equation:
+12t + 18s = 15
+creates:
+[12,18]
+
+Main Confusion 6
+“Why minus sign?”
+Original equation:
+2 + 6t = 1 + 12s
+Move:
+12s
+to LEFT side:
+6t - 12s = -1
+Minus sign appears ONLY because:
+term crossed equality
+Nothing geometric changed.
+
+Main Confusion 7
+“How does matrix represent equations?”
+The matrix stores coefficients only.
+Equation:
+6t - 12s = -1
+contains coefficients:
+￼
+So row becomes:
+[6,-12]
+Similarly:
+12t + 18s = 15
+becomes:
+[12,18]
+Matrix:
+[
+ [6,-12],
+ [12,18]
+]
+is simply coefficient organization.
+
+Main Confusion 8
+“How do we finally get x and y?”
+After solving:
+t,s = solve(...)
+we only know:
+how far to move along each line
+Suppose:
+t = 2/3
+Then:
+p1 + t*v1
+becomes:
+(2,5) + (2/3)*(6,12)
+Scale vector:
+(4,8)
+Add to starting point:
+(2,5) + (4,8)
+= (6,13)
+Now we finally have:
+actual intersection coordinates
+
+Full Mental Model
+Step-by-Step Algorithm
+1. Take two points from each line
+Used only to discover line direction.
+
+2. Subtract points
+v = p2 - p1
+This extracts displacement/movement rule.
+
+3. Build parametric lines
+line = start + parameter * direction
+
+4. Force both lines equal
+Intersection means:
+same x
+same y
+
+5. Split into x/y equations
+Creates linear equation system.
+
+6. Build coefficient matrix
+Rows store equation coefficients.
+
+7. Solve for t and s
+These are movement amounts.
+
+8. Substitute back
+Use:
+p1 + t*v1
+to compute actual geometric point.
+
+Biggest Final Realization
+The entire function is fundamentally solving:
+“How far must both lines travel
+along their own movement directions
+before reaching same position?”
+Everything else:
+vectors
+matrix
+coefficients
+equations
+solve()
+exists only to answer THAT question.

@@ -1,0 +1,156 @@
+11- Order Of files it was created
+
+
+Correct project order
+Phase 1 — root + control
+README.md
+requirements.txt
+.gitignore
+config/__init__.py (empty)
+config/colors.py
+config/sizes.py
+config/defaults.py
+config/timings.py
+config/logging_config.py
+
+Phase 2 — shared base helpers
+core/__init__.py (empty)
+core/geometry.py
+core/anchors.py
+core/layout.py
+core/motion.py
+core/naming.py
+core/logger.py
+
+Phase 3 — creature foundation
+creature/__init__.py (empty)
+creature/parts/__init__.py (empty)
+creature/parts/body_m.py
+creature/parts/eyes.py
+creature/parts/nose.py
+creature/parts/mouth.py
+creature/parts/hat.py
+
+Phase 4 — creature assembly
+creature/myline_m_creature.py
+
+
+Phase 5 — first tests
+scenes/__init__.py (empty)
+scenes/tests/__init__.py (empty)
+scenes/tests/test_boot_scene.py
+scenes/tests/test_body_scene.py
+scenes/tests/test_face_scene.py
+scenes/tests/test_hat_scene.py
+
+
+
+Phase 6 — limbs
+creature/parts/arms.py
+creature/parts/hands.py
+creature/parts/legs.py
+creature/parts/feet.py
+scenes/tests/test_limbs_scene.py
+
+
+
+Phase 7 — rigs
+creature/rigs/__init__.py (empty)
+creature/rigs/face_rig.py
+creature/rigs/arm_rig.py
+creature/rigs/leg_rig.py
+creature/rigs/body_rig.py
+
+
+
+Phase 8 — poses
+creature/poses/__init__.py (empty)
+creature/poses/neutral_pose.py
+creature/poses/happy_pose.py
+creature/poses/teacher_pose.py
+creature/poses/pointing_pose.py
+creature/poses/thinking_pose.py
+scenes/tests/test_pose_scene.py
+
+
+
+Phase 9 — actions
+creature/actions/__init__.py (empty)
+creature/actions/blink_action.py
+creature/actions/look_action.py
+creature/actions/wave_action.py
+creature/actions/point_action.py
+creature/actions/hop_action.py
+creature/actions/walk_action.py
+scenes/tests/test_actions_scene.py
+
+
+
+Phase 10 — props
+props/__init__.py (empty)
+props/pointer_stick.py
+props/math_board.py
+props/formula_card.py
+props/axis_plane.py
+
+
+
+Phase 11 — character scenes
+scenes/character/__init__.py (empty)
+scenes/character/mascot_intro_scene.py
+scenes/character/mascot_wave_scene.py
+scenes/character/mascot_walk_scene.py
+scenes/character/mascot_point_scene.py
+scenes/character/mascot_teach_scene.py
+
+
+
+Phase 12 — lesson scenes
+scenes/lessons/__init__.py (empty)
+scenes/lessons/vectors_intro_scene.py
+scenes/lessons/coordinates_intro_scene.py
+scenes/lessons/matrix_intro_scene.py
+
+
+Phase 13 — docs
+docs/project_plan.md
+docs/creature_design_notes.md
+docs/file_responsibilities.md
+docs/animation_notes.md
+
+Phase 14 — helper runner
+render_scene.py
+
+Phase 15 — assets note
+assets/refs/README.md
+
+
+Why render_scene.py moved down
+Because it depends on us already having:
+scenes
+naming choices
+logging style
+render flow decisions
+So it should come later, not early.
+Logging plan
+Yes, we will keep logging centralized.
+one-place control
+config/logging_config.py
+This will define:
+log level
+format
+enable/disable debug
+logger names
+shared logger access
+core/logger.py
+This will expose helper functions like:
+get_logger(__name__)
+maybe setup/init wrapper
+So later files can do:
+from core.logger import get_logger
+logger = get_logger(__name__)
+and then use:
+logger.info("...")
+logger.error("...")
+logger.debug("...")
+without repeating setup everywhere.

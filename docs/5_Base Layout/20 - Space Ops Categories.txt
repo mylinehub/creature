@@ -1,0 +1,227 @@
+20 - Space Ops Categories
+
+COMPLETE CATEGORY MAP
+ALL CATEGORIES → NUMBER OF FUNCTIONS → ALL FUNCTIONS
+======================================================== CATEGORY 1
+BASIC VECTOR GEOMETRY
+FUNCTIONS: 4
+========================================================
+get_norm
+normalize
+midpoint
+center_of_mass
+========================================================
+CORE IDEAS
+vectors
+points
+displacement
+magnitude
+normalization
+weighted centers
+======================================================== CATEGORY 2
+ANGLES / ALIGNMENT / PROJECTION
+FUNCTIONS: 4
+========================================================
+dot
+angle_between
+project
+unit_normal
+========================================================
+CORE IDEAS
+cosine
+alignment
+projection
+directional survival
+perpendicularity
+======================================================== CATEGORY 3
+ROTATIONS / TRANSFORMATIONS
+FUNCTIONS: 3
+========================================================
+rotation_matrix
+rotation_about_z
+rotation_between_vectors
+========================================================
+CORE IDEAS
+rotations
+transformation matrices
+transformed basis directions
+orientation change
+======================================================== CATEGORY 4
+INTERPOLATION / BLENDING
+FUNCTIONS: 4
+========================================================
+interpolate
+inverse_interpolate
+integer_interpolate
+outer_product
+========================================================
+CORE IDEAS
+weighted movement
+interpolation
+evolving averages
+smooth transitions
+all-with-all interactions
+======================================================== CATEGORY 5
+LINE / DETERMINANT / PROJECTION GEOMETRY
+FUNCTIONS: 4
+========================================================
+line_intersection
+perpendicular_bisector
+is_on_line
+project_along_vector
+========================================================
+CORE IDEAS
+line equations
+parametric geometry
+perpendicular vectors
+determinants
+area generation
+line projections
+======================================================== CATEGORY 6
+CURVES / PATH GEOMETRY
+FUNCTIONS: 10
+========================================================
+bezier
+partial_bezier_points
+interpolate_curve
+tangent_vector
+curve_length
+path_along_arc
+quadratic_bezier
+cubic_bezier
+smooth_handle_points
+get_quadratic_approximation_of_cubic
+========================================================
+CORE IDEAS
+recursive interpolation
+evolving directions
+curvature
+tangent vectors
+parametric motion
+smooth geometry
+======================================================== CATEGORY 7
+ARRAY / NUMERICAL UTILITIES
+FUNCTIONS: ~6
+========================================================
+clip
+fdiv
+binary_search
+sigmoid
+softmax
+inverse_sigmoid
+========================================================
+CORE IDEAS
+numerical stability
+bounded values
+smooth nonlinear transitions
+searching
+controlled scaling
+======================================================== CATEGORY 8
+ITERABLE / LIST UTILITIES
+FUNCTIONS: ~7
+========================================================
+batch_by_property
+adjacent_pairs
+adjacent_n_tuples
+list_update
+list_difference_update
+remove_list_redundancies
+make_even
+========================================================
+CORE IDEAS
+iterable traversal
+grouping
+neighboring relationships
+sequence cleanup
+structural iteration
+======================================================== CATEGORY 9
+SPACE / COORDINATE UTILITIES
+FUNCTIONS: ~6
+========================================================
+complex_to_R3
+R3_to_complex
+compass_directions
+rotate_vector
+angle_of_vector
+get_unit_normal
+========================================================
+CORE IDEAS
+coordinate conversions
+angular geometry
+directional systems
+spatial representations
+======================================================== CATEGORY 10
+RATE FUNCTIONS / SMOOTHING
+FUNCTIONS: ~8
+========================================================
+smooth
+rush_into
+rush_from
+there_and_back
+wiggle
+lingering
+linear
+exponential_decay
+========================================================
+CORE IDEAS
+animation timing
+easing
+smooth acceleration
+oscillation
+nonlinear motion control
+======================================================== CATEGORY 11
+MATRIX / DETERMINANT UTILITIES
+FUNCTIONS: ~3
+========================================================
+determinant
+matrix_product
+rotation_transpose
+========================================================
+CORE IDEAS
+area scaling
+transformation composition
+matrix algebra
+======================================================== CATEGORY 12
+GEOMETRIC CONSTRUCTION HELPERS
+FUNCTIONS: ~3
+========================================================
+line_from_points
+polygon_area
+triangle_area
+========================================================
+CORE IDEAS
+geometric construction
+polygon decomposition
+area computation
+======================================================== TOTAL APPROXIMATE FUNCTIONS
+Approx:
+4+4+3+4+4+10+6+7+6+8+3+3\approx62
+========================================================
+IMPORTANT
+Exact count depends on:
+actual Manim version
+utility module version
+helper imports
+internal/private functions
+========================================================
+CURRENT POSITION
+========================================================
+We are CURRENTLY deeply inside:
+CATEGORY 6
+CURVES / PATH GEOMETRY
+Specifically:
+bezier(points)
+and deeply studying:
+comb(n,k)
+*
+(1-t)^(n-k)
+*
+t^k
+========================================================
+CURRENT BIGGEST REALIZATION
+Bezier curves are:
+recursive interpolation systems
+where evolving weighted influence
+continuously transfers control
+between points,
+creating smooth curvature

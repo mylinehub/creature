@@ -1,0 +1,354 @@
+7- Manim Architecture
+
+Intro File:
+
+
+from manimlib import *
+
+class LogoIntro(Scene):
+    def construct(self):
+        text = Text("MyLineHub")
+        self.play(Write(text))
+        self.wait()
+
+
+
+Above is first file you write. Here TEXT , Scene class which is inherted comes from Manim. This article explains you how Manim is created and how you can utilize it fully
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                          USER / PROJECT LAYER                        │
+│                                                                      │
+│  Your file: logo_intro.py                                            │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ from manimlib import *                                         │  │
+│  │                                                                │  │
+│  │ class LogoIntro(Scene):                                        │  │
+│  │     def construct(self):                                       │  │
+│  │         text = Text("MyLineHub")                               │  │
+│  │         self.play(Write(text))                                 │  │
+│  │         self.wait()                                            │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  Purpose: user writes scene logic                                    │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  │ command line
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         CLI / ENTRY LAYER                            │
+│                                                                      │
+│  manimgl file.py SceneName                                           │
+│          │                                                           │
+│          ▼                                                           │
+│   manimlib/__main__.py                                               │
+│                                                                      │
+│   Responsibilities:                                                  │
+│   - parse CLI arguments                                              │
+│   - load global config                                               │
+│   - optionally create preview window                                 │
+│   - call scene extraction logic                                      │
+│   - run selected scene(s)                                            │
+│                                                                      │
+│   Uses:                                                              │
+│   - config.py / manim_config                                         │
+│   - extract_scene.py                                                 │
+│   - window.py                                                        │
+│   - cache utilities                                                  │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    MODULE LOAD / SCENE DISCOVERY                     │
+│                                                                      │
+│   manimlib/extract_scene.py                                          │
+│                                                                      │
+│   Responsibilities:                                                  │
+│   - load your Python file as a module                                │
+│   - inspect it                                                       │
+│   - find classes inheriting Scene                                    │
+│   - choose requested scene by name                                   │
+│   - instantiate scene objects                                        │
+│                                                                      │
+│   Inputs:                                                            │
+│   - file.py                                                          │
+│   - SceneName                                                        │
+│                                                                      │
+│   Output:                                                            │
+│   - Scene object(s)                                                  │
+│                                                                      │
+│   Uses Python concepts:                                              │
+│   - import/module loading                                            │
+│   - reflection / inspect                                             │
+│   - inheritance checking                                             │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         SCENE / TIMELINE LAYER                       │
+│                                                                      │
+│   manimlib/scene/scene.py                                            │
+│                                                                      │
+│   Core class: Scene                                                  │
+│                                                                      │
+│   Responsibilities:                                                  │
+│   - hold scene state                                                 │
+│   - manage mobjects on screen                                        │
+│   - run animation timeline                                           │
+│   - call construct()                                                 │
+│   - coordinate rendering / file writing                              │
+│                                                                      │
+│   Important methods:                                                 │
+│   - run()        -> scene lifecycle                                  │
+│   - construct()  -> user-defined scene script                        │
+│   - add()        -> add objects immediately                          │
+│   - remove()     -> remove objects                                   │
+│   - play()       -> run animations                                   │
+│   - wait()       -> pause / advance time                             │
+│                                                                      │
+│   Scene talks to:                                                    │
+│   - mobject system                                                   │
+│   - animation system                                                 │
+│   - camera                                                           │
+│   - scene_file_writer                                                │
+│   - event/window systems                                             │
+└──────────────────────────────────────────────────────────────────────┘
+                      │                    │                    │
+                      │                    │                    │
+                      ▼                    ▼                    ▼
+┌──────────────────────────────┐  ┌──────────────────────────────┐  ┌──────────────────────────────┐
+│        MOBJECT LAYER         │  │      ANIMATION LAYER         │  │        CAMERA LAYER          │
+│                              │  │                              │  │                              │
+│ manimlib/mobject/            │  │ manimlib/animation/         │  │ manimlib/camera/            │
+│                              │  │                              │  │                              │
+│ Purpose:                     │  │ Purpose:                     │  │ Purpose:                     │
+│ "What exists on screen?"     │  │ "How does it change over     │  │ "How is the scene viewed?"   │
+│                              │  │  time?"                      │  │                              │
+│ Core classes:                │  │                              │  │ Core parts:                  │
+│ - Mobject                    │  │ Core class:                  │  │ - Camera                     │
+│ - VMobject                   │  │ - Animation                  │  │ - CameraFrame                │
+│ - Group / VGroup             │  │                              │  │                              │
+│                              │  │ Main families:               │  │ Responsibilities:            │
+│ Common subclasses:           │  │ - creation.py               │  │ - viewport / frame           │
+│ - Line                       │  │   ShowCreation, Write        │  │ - zoom / pan / orientation   │
+│ - Arrow                      │  │ - fading.py                  │  │ - projection-related state   │
+│ - Polygon                    │  │   FadeIn, FadeOut            │  │                              │
+│ - Circle                     │  │ - transform.py               │  │ Used by Scene to decide      │
+│ - Text                       │  │   Transform, Replacement...  │  │ what area is visible         │
+│ - Tex                        │  │ - composition.py             │  │ and how it is rendered       │
+│ - SVGMobject                 │  │   AnimationGroup, Lagged...  │  │                              │
+│ - ImageMobject               │  │ - indication.py              │  │                              │
+│                              │  │ - growing.py                 │  │                              │
+│ Responsibilities:            │  │                              │  │                              │
+│ - points / geometry          │  │ Responsibilities:            │  │                              │
+│ - hierarchy (submobjects)    │  │ - begin()                    │  │                              │
+│ - transforms                 │  │ - interpolate(alpha)         │  │                              │
+│ - style / color / opacity    │  │ - finish()                   │  │                              │
+│ - updaters                   │  │ - cleanup                    │  │                              │
+│ - shader/render data         │  │                              │  │                              │
+└──────────────────────────────┘  └──────────────────────────────┘  └──────────────────────────────┘
+                      │                    │                    │
+                      └──────────────┬─────┴──────────────┬─────┘
+                                     │                    │
+                                     ▼                    ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                      SUPPORT / UTILITY LAYER                         │
+│                                                                      │
+│   manimlib/utils/                                                    │
+│                                                                      │
+│   Purpose: shared helper logic used by many layers                   │
+│                                                                      │
+│   Important utility modules:                                         │
+│   - bezier.py           -> curve math                                │
+│   - paths.py            -> path interpolation logic                  │
+│   - space_ops.py        -> vector / geometry operations              │
+│   - rate_functions.py   -> easing functions                          │
+│   - color.py            -> color conversions / handling              │
+│   - iterables.py        -> list/sequence helpers                     │
+│   - tex.py              -> TeX helper logic                          │
+│   - tex_file_writing.py -> TeX rendering pipeline support            │
+│                                                                      │
+│   Used by:                                                           │
+│   - mobject                                                          │
+│   - animation                                                        │
+│   - scene                                                            │
+│   - text / svg / tex systems                                         │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    CONFIG / CONSTANTS LAYER                          │
+│                                                                      │
+│   Files:                                                             │
+│   - config.py                                                        │
+│   - default_config.yml                                               │
+│   - constants.py                                                     │
+│                                                                      │
+│   Purpose: shared defaults and global vocabulary                     │
+│                                                                      │
+│   config.py / default_config.yml:                                    │
+│   - resolution                                                       │
+│   - frame height                                                     │
+│   - file writer settings                                             │
+│   - window settings                                                  │
+│   - run/CLI behavior                                                 │
+│                                                                      │
+│   constants.py:                                                      │
+│   - ORIGIN, RIGHT, LEFT, UP, DOWN, IN, OUT                           │
+│   - UL, UR, DL, DR                                                   │
+│   - FRAME_WIDTH, FRAME_HEIGHT                                        │
+│   - FRAME_X_RADIUS, FRAME_Y_RADIUS                                   │
+│   - spacing constants (BUFF values)                                  │
+│   - colors / math constants                                          │
+│                                                                      │
+│   Used by:                                                           │
+│   - mobject transforms                                               │
+│   - positioning helpers                                              │
+│   - scene layout logic                                               │
+│   - camera/frame calculations                                        │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                  TEXT / SVG / IMAGE SPECIALIZED LAYERS               │
+│                                                                      │
+│   Under manimlib/mobject/svg/ and related modules                    │
+│                                                                      │
+│   Text pipeline:                                                     │
+│   Text(...)                                                          │
+│    └─ uses ManimPango / font shaping                                 │
+│       └─ becomes vector geometry / submobjects                       │
+│                                                                      │
+│   Tex pipeline:                                                      │
+│   Tex(...)                                                           │
+│    └─ uses TeX helper pipeline                                       │
+│       └─ rendered output becomes vector-like object structure        │
+│                                                                      │
+│   SVG pipeline:                                                      │
+│   SVGMobject(...)                                                    │
+│    └─ parse SVG paths (svgelements etc.)                             │
+│       └─ convert to vectorized mobjects                              │
+│                                                                      │
+│   Image pipeline:                                                    │
+│   ImageMobject(...)                                                  │
+│    └─ uses Pillow/image handling                                     │
+│                                                                      │
+│   Used by user when creating visible assets                          │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    RENDER / GPU / OUTPUT LAYER                       │
+│                                                                      │
+│   Rendering side uses:                                               │
+│   - moderngl                                                         │
+│   - PyOpenGL                                                         │
+│   - shader_wrapper.py                                                │
+│   - shaders/                                                         │
+│   - scene_file_writer.py                                             │
+│                                                                      │
+│   Responsibilities:                                                  │
+│   - convert object state into GPU buffers                            │
+│   - apply shaders                                                    │
+│   - draw frames                                                      │
+│   - write images / videos                                            │
+│   - hand off encoded output to ffmpeg pipeline                       │
+│                                                                      │
+│   External/system tools used:                                        │
+│   - OpenGL                                                           │
+│   - ffmpeg                                                           │
+└──────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                           FINAL OUTPUT                               │
+│                                                                      │
+│   What user sees / gets:                                             │
+│   - preview window                                                   │
+│   - rendered frames                                                  │
+│   - video files                                                      │
+│   - interactive inspection during development                        │
+└──────────────────────────────────────────────────────────────────────┘
+
+
+
+User Scene File
+    │
+    ▼
+CLI entry (`manimgl`)
+    │
+    ▼
+`__main__.py`
+    │
+    ▼
+`extract_scene.py`
+    │
+    ▼
+Scene object created
+    │
+    ▼
+Scene lifecycle (`run -> construct`)
+    │
+    ├── creates / manages Mobjects
+    ├── runs Animations
+    ├── uses Camera view state
+    ├── uses Constants / Config
+    ├── uses Utils for math / paths / easing
+    │
+    ▼
+Render system
+    │
+    ▼
+Window / frames / video output
+
+
+
+
+
+                         ┌──────────────────────┐
+                         │        Scene         │
+                         │──────────────────────│
+                         │ add()                │
+                         │ play()               │
+                         │ wait()               │
+                         │ remove()             │
+                         │ construct()          │
+                         │ run()                │
+                         └──────────┬───────────┘
+                                    │
+             ┌──────────────────────┼──────────────────────┐
+             │                      │                      │
+             ▼                      ▼                      ▼
+   ┌─────────────────┐   ┌────────────────────┐  ┌──────────────────┐
+   │    Mobject      │   │     Animation      │  │      Camera      │
+   │─────────────────│   │────────────────────│  │──────────────────│
+   │ points/state    │   │ begin()            │  │ frame/view       │
+   │ submobjects     │   │ interpolate()      │  │ zoom/pan/orient  │
+   │ shift/scale     │   │ finish()           │  │ projection state │
+   │ rotate/copy     │   │ cleanup            │  └──────────────────┘
+   └──────┬──────────┘   └─────────┬──────────┘
+          │                        │
+          │                        │
+          ▼                        ▼
+ ┌─────────────────┐      ┌────────────────────────────┐
+ │  Visible types  │      │  Animation families        │
+ │─────────────────│      │────────────────────────────│
+ │ Line            │      │ Write                      │
+ │ Arrow           │      │ ShowCreation               │
+ │ Polygon         │      │ FadeIn / FadeOut           │
+ │ Circle          │      │ Transform                  │
+ │ Text            │      │ ReplacementTransform       │
+ │ Tex             │      │ LaggedStart                │
+ │ SVGMobject      │      │ Grow / Indicate / Flash    │
+ │ ImageMobject    │      └────────────────────────────┘
+ └─────────────────┘
+
+
+
+Extract and open manim master folder and start giving files below one by one to LLM.
+
+constants.py
+mobject.py
+animation.py
+scene.py
+__main__.py

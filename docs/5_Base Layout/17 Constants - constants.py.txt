@@ -1,0 +1,258 @@
+17 Constants - constants.py
+
+
+🧠 BIG IDEA OF constants.py
+constants.py = bridge between config (raw values) and geometry (usable math values)
+It converts:
+config values → usable constants → used in geometry
+
+🧩 COMPLETE GROUP MAP
+1. Pixel system (video world)
+2. Frame system (math world)
+3. Mapping between them
+4. Direction vectors (movement system)
+5. Corner vectors (geometry base)
+6. Screen edge system
+7. Angle system
+8. Style system (stroke, colors)
+Now we go group by group.
+
+🔵 1. PIXEL SYSTEM (VIDEO WORLD)
+DEFAULT_RESOLUTION
+DEFAULT_PIXEL_WIDTH
+DEFAULT_PIXEL_HEIGHT
+Represents
+actual video resolution
+Example:
+1920 × 1080 pixels
+
+Meaning
+This is NOT math space
+This is output space (final video)
+
+Think like this
+This is your screen size
+
+🟢 2. FRAME SYSTEM (MATH WORLD)
+FRAME_HEIGHT
+FRAME_WIDTH
+FRAME_X_RADIUS
+FRAME_Y_RADIUS
+FRAME_SHAPE
+
+Represents
+Manim’s coordinate system
+Example:
+FRAME_HEIGHT = 8.0
+→ y goes from -4 to +4
+
+Meaning
+This is where shapes live
+
+Think like this
+Graph paper
+
+🔗 3. RELATION: PIXEL ↔ FRAME
+This is the most important relation.
+ASPECT_RATIO = pixel_width / pixel_height
+FRAME_WIDTH = FRAME_HEIGHT * ASPECT_RATIO
+
+Example
+pixel: 1920 × 1080
+FRAME_HEIGHT = 8
+Then:
+ASPECT_RATIO = 1920 / 1080 = 1.777
+FRAME_WIDTH = 8 × 1.777 = 14.22
+
+Mapping
+Pixel world        Frame world
+--------------------------------
+1920 px width   → 14.22 units
+1080 px height  → 8.0 units
+
+Meaning
+Frame is scaled version of pixel world
+
+Key insight
+Pixels = rendering
+Frame  = math
+
+🔴 4. DIRECTION SYSTEM (VECTORS)
+ORIGIN
+UP
+DOWN
+LEFT
+RIGHT
+IN
+OUT
+
+Represents
+basic movement directions
+
+Values
+ORIGIN = [0,0,0]
+UP     = [0,1,0]
+RIGHT  = [1,0,0]
+
+Meaning
+unit movement in space
+
+Example
+circle.shift(UP * 2)
+means:
+move 2 units up
+
+Think
+These are arrows in space
+
+🟡 5. CORNER SYSTEM (GEOMETRY BASE)
+UL = UP + LEFT
+UR = UP + RIGHT
+DL = DOWN + LEFT
+DR = DOWN + RIGHT
+
+Represents
+square corners
+
+Values
+UR = [1,1,0]
+UL = [-1,1,0]
+DL = [-1,-1,0]
+DR = [1,-1,0]
+
+Meaning
+standard unit square
+
+Used in
+Rectangle → Polygon(UR, UL, DL, DR)
+
+Key insight
+All rectangles start from this unit square
+then scaled to required size
+
+🟣 6. SCREEN EDGE SYSTEM
+TOP
+BOTTOM
+LEFT_SIDE
+RIGHT_SIDE
+
+Represents
+edges of screen in frame space
+
+Values
+TOP = FRAME_Y_RADIUS * UP
+If:
+FRAME_Y_RADIUS = 4
+then:
+TOP = [0,4,0]
+
+Meaning
+top boundary of screen
+
+Use
+text.to_edge(TOP)
+
+Think
+limits of drawing space
+
+🟠 7. ANGLE SYSTEM
+PI
+TAU
+DEG
+RADIANS
+
+Represents
+angle measurement system
+
+Values
+PI = 3.14159
+TAU = 2π
+DEG = TAU / 360
+
+Meaning
+convert degrees → radians
+
+Example
+90 * DEG = π/2
+
+Used in
+arc drawing
+rotation
+rounded corners
+
+⚪ 8. STYLE SYSTEM
+Stroke
+DEFAULT_STROKE_WIDTH
+Meaning:
+default outline thickness
+
+Colors
+RED, BLUE, WHITE, BLACK
+
+Represents
+visual appearance
+
+Comes from
+default_config.yml → colors
+
+🔶 FINAL RELATION MAP
+default_config.yml
+        ↓
+config.py
+        ↓
+constants.py
+        ↓
+geometry.py
+
+🔥 FULL SYSTEM VIEW
+PIXEL SYSTEM
+   ↓
+(DEFAULT_PIXEL_WIDTH, HEIGHT)
+
+FRAME SYSTEM
+   ↓
+(FRAME_WIDTH, HEIGHT)
+
+RELATION
+   ↓
+ASPECT_RATIO
+
+GEOMETRY BASE
+   ↓
+UR, UL, DL, DR
+
+MOVEMENT SYSTEM
+   ↓
+UP, DOWN, LEFT, RIGHT
+
+ANGLE SYSTEM
+   ↓
+PI, DEG
+
+STYLE SYSTEM
+   ↓
+colors, stroke
+
+🧠 FINAL MEMORY BLOCK
+Pixels → screen size
+Frame  → math space
+
+Vectors → movement
+Corners → base square
+
+Angles → rotation
+Colors → appearance
+
+🚀 WHY THIS IS IMPORTANT FOR YOUR NOSE
+When you do:
+RoundedRectangle(width=0.14, height=0.20)
+Internally:
+UR, UL, DL, DR → unit square
+↓
+scaled to width/height
+↓
+corners rounded using angles + vectors
+
+If you’re ready, next we go to:
+simple_functions.py
+That’s where math functions like clip, interpolation, etc. start → directly used in rounding corners.

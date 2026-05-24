@@ -1,0 +1,110 @@
+1- 3D Video MyLineHub Logo — (Local Environment)
+
+Goal
+Create a clean, reproducible setup using:
+Homebrew
+Python 3.10
+Project-local virtual environment (.venv)
+ManimGL
+VS Code for development
+
+1. Install Homebrew (if not installed)
+brew --version
+If not installed, install from official site.
+
+2. Install system dependencies
+brew install python@3.10 ffmpeg pkg-config cairo
+These are required for:
+Python runtime
+video rendering (ffmpeg)
+graphics libraries (cairo)
+
+3. Ensure Python 3.10 is used
+echo 'export PATH="$(brew --prefix)/opt/python@3.10/libexec/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+Check:
+python3 --version
+
+4. Create project folder
+cd ~
+mkdir mylinehub-logo
+cd mylinehub-logo
+
+5. Create requirements.txt
+cat > requirements.txt <<'EOF'
+manimgl==1.7.2
+setuptools<82
+EOF
+
+6. Create project-local virtual environment
+python3 -m venv .venv
+
+7. Activate environment
+source .venv/bin/activate
+Verify:
+which python
+Expected:
+.../mylinehub-logo/.venv/bin/python
+
+8. Upgrade pip tools
+python -m pip install --upgrade pip wheel
+
+9. Install dependencies
+pip install -r requirements.txt
+
+10. Verify ManimGL
+manimgl --version
+Expected:
+ManimGL v1.7.2
+
+11. Create project structure
+mkdir scenes assets notes
+Create first file:
+touch logo_intro.py
+
+12. First Manim file
+Open logo_intro.py and add:
+from manimlib import *
+
+class LogoIntro(Scene):
+    def construct(self):
+        text = Text("MyLineHub")
+        self.play(Write(text))
+        self.wait()
+
+13. Run first scene
+manimgl logo_intro.py LogoIntro
+
+14. Open in VS Code (recommended)
+code .
+Then:
+Select Python interpreter → .venv
+Install Python extension if needed
+
+VS Code vs Xcode
+VS Code (Recommended)
+lightweight
+Python-first
+great terminal integration
+easy environment switching
+Xcode
+heavy
+not ideal for Python workflows
+mainly for iOS/macOS apps
+👉 Use VS Code for this project.
+
+15. Save exact environment (optional)
+pip freeze > requirements-lock.txt
+
+Final structure
+mylinehub-logo/
+├── .venv/
+├── requirements.txt
+├── requirements-lock.txt
+├── scenes/
+├── assets/
+├── notes/
+└── logo_intro.py
+
+DONE
+You now have a clean, reproducible ManimGL setup and your first running scene.

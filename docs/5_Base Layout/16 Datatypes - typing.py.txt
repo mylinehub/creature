@@ -1,0 +1,488 @@
+16 Datatypes - typing.py
+
+
+Manim typing.py Study Notes
+1. What is this file for?
+manimlib/typing.py is not a drawing file.
+It does not create the nose. It does not create rectangles. It does not move points. It does not calculate angles.
+It creates type names.
+Think of it as a dictio5_Manim_Data_Typesnary:
+FloatArray  = NumPy array of decimal numbers
+Vect3       = one 3D vector / point
+Vect3Array  = many 3D vectors / points
+ManimColor  = a color value
+Selector    = something used to select text/math pieces
+Self        = this same object type
+These names are mostly for:
+1. humans reading the code
+2. editors like VS Code
+3. type checkers
+4. future code safety
+They are not the real drawing values.
+Real values are things like:
+np.array([0.07, 0.10, 0.0])
+Type names are things like:
+Vect3
+FloatArray
+Vect3Array
+
+2. Why is Self imported?
+Code:
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
+What is Self?
+Self means:
+this method returns the same object type
+Example:
+class Shape:
+    def move(self) -> Self:
+        return self
+This means:
+move() returns the same Shape object
+In Manim, many methods work like this:
+mobject.shift(RIGHT)
+mobject.scale(2)
+mobject.set_width(4)
+mobject.round_corners(0.2)
+These methods usually modify the object and return the same object.
+So Manim can chain methods:
+square.set_width(2).shift(RIGHT).set_color(RED)
+That works because each method returns self.
+Why does Self look unused in typing.py?
+In typing.py, Self is only imported so other files can use it in type hints.
+Example from another file:
+def round_corners(self, radius=None) -> Self:
+    ...
+    return self
+Here -> Self means:
+this function returns the same object type
+So Self is not used to calculate anything. It is used to describe return type.
+Why try/except?
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
+Different Python versions keep Self in different places.
+So Manim says:
+First try typing_extensions.
+If that package is not available, use typing.
+This is compatibility logic.
+
+3. Runtime value vs type name
+This is the most important difference.
+Runtime value
+p = np.array([0.07, 0.10, 0.0])
+This creates real data.
+Manim can use it:
+p + RIGHT
+p - UP
+get_norm(p)
+Type name
+Vect3 = Annotated[FloatArray, Literal[3]]
+This does not create a point.
+It only means:
+Vect3 = a float array with 3 numbers
+So:
+p: Vect3 = np.array([0.07, 0.10, 0.0])
+means:
+p is expected to be a 3D vector
+
+4. Groups of datatypes created in typing.py
+The file creates several groups.
+Group A: Python typing tools
+Group B: color types
+Group C: range types
+Group D: selector/text types
+Group E: dictionary/config types
+Group F: NumPy/vector types
+Group G: object-return type
+Now we study each group.
+
+Group A — Python typing tools
+Code:
+from typing import Union, Tuple, Annotated, Literal, Iterable, Dict
+These are not Manim-specific shapes. They are vocabulary tools.
+Union
+Means:
+this OR that
+Example:
+Union[str, int]
+means:
+string OR integer
+Use case:
+ManimColor = Union[str, Color, None]
+Meaning:
+color can be string OR Color object OR None
+
+Tuple
+Means fixed-size tuple.
+Example:
+Tuple[float, float]
+means:
+two float numbers
+Example value:
+(0.0, 10.0)
+Use case:
+RangeSpecifier = Tuple[float, float, float] | Tuple[float, float]
+
+Annotated
+Means:
+a type plus extra note
+Example:
+Vect3 = Annotated[FloatArray, Literal[3]]
+Meaning:
+FloatArray, with note: length 3
+
+Literal
+Means exact value note.
+Example:
+Literal[3]
+Meaning:
+exactly 3
+Used here to describe vector size.
+
+Iterable
+Means something you can loop over.
+Examples:
+[1, 2, 3]
+(1, 2, 3)
+"abc"
+Use case:
+Selector = Union[SingleSelector, Iterable[SingleSelector]]
+Meaning:
+Selector can be one selector or many selectors
+
+Dict
+Means dictionary.
+Example:
+Dict[str, float]
+Meaning:
+keys are strings, values are floats
+Use case:
+UniformDict = Dict[str, float | bool | np.ndarray | tuple]
+
+Group B — Color datatype
+Code:
+from colour import Color
+ManimColor = Union[str, Color, None]
+Color
+Color is a color object from the colour Python package.
+ManimColor
+Means a Manim color can be:
+1. string
+2. Color object
+3. None
+Examples:
+"red"
+"#ff0000"
+Color("red")
+None
+Use case:
+fill_color: ManimColor
+stroke_color: ManimColor
+Memory rule:
+ManimColor = any acceptable color input
+
+Group C — Range datatype
+Code:
+RangeSpecifier = Tuple[float, float, float] | Tuple[float, float]
+This means a range can be:
+(start, stop)
+or:
+(start, stop, step)
+Examples:
+(0.0, 10.0)
+(0.0, 10.0, 0.5)
+Use case:
+Used wherever Manim wants a numerical range.
+Memory rule:
+RangeSpecifier = start/stop or start/stop/step
+
+Group D — Selector/text datatypes
+These are mostly for selecting pieces of text, math text, or subparts.
+They are not important for nose geometry, but they are part of the file.
+Span
+Code:
+Span = tuple[int, int]
+Meaning:
+(start_index, end_index)
+Example:
+(2, 5)
+Could mean select characters from index 2 to 5.
+Memory rule:
+Span = two integer positions
+
+SingleSelector
+Code:
+SingleSelector = Union[
+    str,
+    re.Pattern,
+    tuple[Union[int, None], Union[int, None]],
+]
+A SingleSelector can be one of these:
+1. string
+2. regex pattern
+3. tuple of start/end indexes
+Examples:
+"x"
+re.compile("x+")
+(0, 5)
+(None, 5)
+(3, None)
+Memory rule:
+SingleSelector = one way to select something
+
+Selector
+Code:
+Selector = Union[SingleSelector, Iterable[SingleSelector]]
+Meaning:
+Selector can be one selector OR many selectors
+Examples:
+"x"
+["x", "y", "z"]
+[(0, 5), "alpha"]
+Memory rule:
+Selector = one or many selection instructions
+
+Group E — Dictionary/config datatype
+Code:
+UniformDict = Dict[str, float | bool | np.ndarray | tuple]
+Meaning:
+A dictionary with string keys.
+Values can be float, bool, NumPy array, or tuple.
+Example:
+{
+    "width": 0.14,
+    "visible": True,
+    "center": np.array([0.0, 0.0, 0.0]),
+    "range": (0.0, 1.0),
+}
+Use case:
+Configuration-like dictionaries.
+Memory rule:
+UniformDict = string-key config dictionary
+
+Group F — NumPy/vector datatypes
+This is the most important group for your rounded rectangle study.
+FloatArray
+Code:
+FloatArray = np.ndarray[int, np.dtype[np.float64]]
+Meaning:
+NumPy array containing float64 decimal numbers
+Example runtime value:
+np.array([0.07, 0.10, 0.0], dtype=np.float64)
+Memory rule:
+FloatArray = decimal-number NumPy array
+
+Vect2
+Code:
+Vect2 = Annotated[FloatArray, Literal[2]]
+Meaning:
+2-number vector
+Example:
+np.array([3.0, 4.0])
+Math meaning:
+(x, y)
+Use case:
+2D calculations.
+Memory rule:
+Vect2 = one 2D point/vector
+
+Vect3
+Code:
+Vect3 = Annotated[FloatArray, Literal[3]]
+Meaning:
+3-number vector
+Example:
+np.array([0.07, 0.10, 0.0])
+Math meaning:
+(x, y, z)
+Use case in Manim:
+Almost every point is a Vect3.
+Examples:
+ORIGIN = np.array([0.0, 0.0, 0.0])
+UP     = np.array([0.0, 1.0, 0.0])
+UR     = np.array([1.0, 1.0, 0.0])
+Your nose corner:
+np.array([0.07, 0.10, 0.0])
+Memory rule:
+Vect3 = one Manim point/vector
+
+Vect4
+Code:
+Vect4 = Annotated[FloatArray, Literal[4]]
+Meaning:
+4-number vector
+Example:
+np.array([1.0, 2.0, 3.0, 4.0])
+Use case:
+Rotation/quaternion math.
+Memory rule:
+Vect4 = 4-number vector, often rotation-related
+
+VectN
+Code:
+VectN = Annotated[FloatArray, Literal["N"]]
+Meaning:
+vector of any length
+Examples:
+np.array([3.0, 4.0])
+np.array([1.0, 2.0, 3.0])
+np.array([1.0, 2.0, 3.0, 4.0])
+Use case:
+Generic vector functions.
+Example:
+def get_norm(vect: VectN) -> float:
+    ...
+Memory rule:
+VectN = any-length vector
+
+Matrix3x3
+Code:
+Matrix3x3 = Annotated[FloatArray, Literal[3, 3]]
+Meaning:
+3 by 3 matrix
+Example:
+np.array([
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+])
+Use case:
+3D rotation matrices.
+Memory rule:
+Matrix3x3 = rotation/linear-transform matrix
+
+VectArray
+Code:
+VectArray = Annotated[FloatArray, Literal["N", 1]]
+Meaning:
+many 1-number vectors
+Shape idea:
+N rows, 1 column
+Example:
+np.array([
+    [1.0],
+    [2.0],
+    [3.0],
+])
+Memory rule:
+VectArray = many 1D vector entries
+
+Vect2Array
+Code:
+Vect2Array = Annotated[FloatArray, Literal["N", 2]]
+Meaning:
+many 2D points/vectors
+Example:
+np.array([
+    [0.0, 1.0],
+    [2.0, 3.0],
+    [4.0, 5.0],
+])
+Memory rule:
+Vect2Array = list/table of 2D points
+
+Vect3Array
+Code:
+Vect3Array = Annotated[FloatArray, Literal["N", 3]]
+Meaning:
+many 3D points/vectors
+Example rectangle vertices:
+np.array([
+    [ 0.07,  0.10, 0.0],
+    [-0.07,  0.10, 0.0],
+    [-0.07, -0.10, 0.0],
+    [ 0.07, -0.10, 0.0],
+])
+Use case in Manim:
+Shapes store many 3D points.
+get_vertices() can return a Vect3Array.
+Memory rule:
+Vect3Array = many Manim points
+
+Vect4Array
+Code:
+Vect4Array = Annotated[FloatArray, Literal["N", 4]]
+Meaning:
+many 4-number vectors
+Example:
+np.array([
+    [1.0, 2.0, 3.0, 4.0],
+    [5.0, 6.0, 7.0, 8.0],
+])
+Memory rule:
+Vect4Array = many 4D vectors
+
+VectNArray
+Code:
+VectNArray = Annotated[FloatArray, Literal["N", "M"]]
+Meaning:
+many vectors, each with M numbers
+Shape idea:
+N rows, M columns
+Example:
+np.array([
+    [1.0, 2.0, 3.0],
+    [4.0, 5.0, 6.0],
+])
+Here:
+N = 2 rows
+M = 3 columns
+Memory rule:
+VectNArray = generic table of vectors
+
+Group G — Object-return type
+Self
+Code:
+try:
+    from typing_extensions import Self
+except ImportError:
+    from typing import Self
+Meaning:
+same object type
+Use case:
+def set_width(self, width) -> Self:
+    ...
+    return self
+Means:
+set_width returns the same object, after changing it
+Memory rule:
+Self = returns same object
+
+5. Best memory table
+￼
+6. What matters for nose rounded rectangle?
+For your current nose study, remember only these first:
+FloatArray
+Vect3
+Vect3Array
+VectN
+Self
+Because rounded rectangle uses ideas like:
+UR: Vect3
+vertices: Vect3Array
+vect1: VectN
+round_corners(...) -> Self
+Child-level memory:
+Vect3       = one point
+Vect3Array  = many points
+VectN       = any vector
+FloatArray  = NumPy decimal array
+Self        = same object returned
+
+7. Final simple story
+typing.py creates labels.
+It does not create geometry.
+It says:
+When you see Vect3, think one point.
+When you see Vect3Array, think many points.
+When you see FloatArray, think NumPy decimal array.
+When you see Self, think same object returned.
+This file is the vocabulary layer before we read the real math files like:
+constants.py
+simple_functions.py
+space_ops.py
+geometry.py

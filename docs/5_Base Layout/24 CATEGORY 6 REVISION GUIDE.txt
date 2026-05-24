@@ -1,0 +1,433 @@
+24 CATEGORY 6 REVISION GUIDE
+Bezier Subdivision, Partial Curves, Interpolation Utilities
+
+BIG PICTURE OF WHAT WE STUDIED
+We started from:
+interpolation
+then discovered:
+recursive interpolation
+then realized:
+Bezier curves are recursive interpolation systems
+then studied:
+subdivision / extracting smaller curves
+then moved into:
+rendering utilities
+parameter remapping
+interpolation helpers
+performance optimizations
+numerical utilities
+
+MOST IMPORTANT CORE REALIZATION
+Bezier curves are NOT merely:
+some polynomial equation
+They are:
+recursively repeated interpolation structures.
+
+THE TRUE FOUNDATION
+Everything started from:
+(1-t)A+tB
+
+THIS IS:
+interpolation
+Meaning:
+move t% from A toward B
+
+FROM INTERPOLATION TO BEZIER
+
+LINEAR BEZIER
+2 points:
+P0 -------- P1
+Formula:
+(1-t)P_0+tP_1
+This is JUST interpolation.
+
+QUADRATIC BEZIER
+3 points:
+          P1
+           *
+          / \
+         A---B
+          \ /
+           C
+P0 *-------------* P2
+
+PROCESS
+Interpolate:
+P0 ↔ P1 → A
+Interpolate:
+P1 ↔ P2 → B
+Interpolate:
+A ↔ B → C
+
+HUGE REALIZATION
+ONLY:
+C
+lies on actual curve.
+
+A and B ARE:
+helper interpolation points
+NOT actual curve points.
+
+MASSIVE INSIGHT
+As:
+t changes
+A and B slide along edges.
+Then C moves through evolving interpolation structure.
+This moving C traces:
+the Bezier curve.
+
+HUGE RECURSIVE INSIGHT
+Bezier internally contains:
+smaller interpolation systems inside itself.
+This became foundation of:
+subdivision mathematics.
+
+BIGGEST PROPERTY WE LEARNED
+subcurve of Bezier
+is itself another Bezier
+THIS powers entire Category 6.
+
+FUNCTIONS WE STUDIED
+
+1. interpolate()
+def interpolate(start, end, alpha):
+    return (1 - alpha) * start + alpha * end
+
+PURPOSE
+Basic interpolation.
+
+INPUT
+￼
+EXAMPLE
+(1-0.3)(0)+0.3(10)=3
+
+HUGE INSIGHT
+This tiny formula powers ALL Bezier recursion.
+
+2. bezier()
+Generic recursive Bezier evaluator.
+
+IMPORTANT REALIZATION
+Same function behaves differently depending on number of points.
+￼
+MASSIVE INSIGHT
+Same recursive engine works at all depths.
+
+3. partial_bezier_points()
+MOST IMPORTANT CATEGORY 6 FUNCTION.
+
+PURPOSE
+Extract smaller exact subcurve.
+
+INPUT
+partial_bezier_points(points, a, b)
+Meaning:
+extract curve section:
+a → b
+
+BIGGEST CONFUSION WE SOLVED
+We discovered:
+subdivision creates NEW control systems
+inside existing curve.
+
+FIRST LOOP PRODUCED
+[C, B, P2]
+which became:
+new control system
+for curve:
+a → 1
+
+SECOND LOOP PRODUCED
+[C, D, E]
+which became:
+final control system
+for curve:
+a → b
+
+MASSIVE INSIGHT
+Subdivision recursively creates:
+smaller valid Bezier systems inside curve.
+
+4. split_bezier()
+
+PURPOSE
+Split ONE curve into TWO curves.
+
+OUTPUT
+[P0,A,C]
+[C,B,P2]
+
+MEANING
+￼
+HUGE REALIZATION
+One curve becomes:
+two exact smaller Bezier curves.
+
+IMPORTANT PYTHON
+right[::-1]
+means:
+reverse list
+Used because right-side points collected backward.
+
+5. subdivide_bezier()
+
+PURPOSE
+Recursively split curves many times.
+
+PROCESS
+1 curve
+↓
+2 curves
+↓
+4 curves
+↓
+8 curves
+↓
+...
+
+HUGE INSIGHT
+Bezier curves are recursively subdividable forever.
+
+6. bezier_remap()
+(old_t - old_start)/(old_end - old_start)
+
+PURPOSE
+Convert:
+global parameter
+to:
+local subcurve parameter
+
+EXAMPLE
+Whole curve:
+0 ---------------- 1
+Subcurve:
+0.25 ------- 0.75
+Question:
+where is 0.4 inside smaller curve?
+
+COMPUTATION
+\frac{0.4-0.25}{0.75-0.25}=0.3
+
+RESULT
+30% through smaller curve
+
+HUGE INSIGHT
+Subdivision also creates:
+nested parameter spaces.
+
+7. pointwise_become_partial()
+
+PURPOSE
+Rendering wrapper around:
+partial_bezier_points()
+
+USED FOR
+progressive drawing
+stroke reveal
+animations
+partial visibility
+
+HUGE INSIGHT
+Graphics engines separate:
+￼
+8. partial_quadratic_bezier_points()
+
+PURPOSE
+Optimized quadratic-only subdivision.
+
+HUGE QUESTION WE SOLVED
+Why needed if generic function already works?
+
+ANSWER
+Mostly:
+performance optimization
+
+OTHER REASONS
+fewer allocations
+numerical stability
+easier optimization
+explicit geometry control
+
+MASSIVE ENGINEERING INSIGHT
+Math world:
+one elegant generic solution
+Engineering world:
+optimize common cases aggressively
+
+INTERPOLATION UTILITY FUNCTIONS
+
+9. integer_interpolate()
+
+PURPOSE
+Convert continuous interpolation into:
+￼
+EXAMPLE
+2.3
+↓
+(2,0.3)
+
+HUGE INSIGHT
+Used for:
+segment traversal systems.
+
+10. mid()
+(start + end)/2
+
+PURPOSE
+Midpoint utility.
+Equivalent to:
+interpolate(start,end,0.5)
+
+HUGE INSIGHT
+Subdivision repeatedly computes midpoints.
+
+11. inverse_interpolate()
+(value-start)/(end-start)
+
+PURPOSE
+Reverse interpolation.
+
+QUESTION
+Instead of:
+alpha → value
+it computes:
+value → alpha
+
+12. match_interpolate()
+
+PURPOSE
+Map value from one interval into another interval while preserving relative percentage.
+
+HUGE PROCESS
+Find percentage in old interval.
+Rebuild equivalent position in new interval.
+
+13. outer_interpolate()
+
+PURPOSE
+Batch/vectorized interpolation.
+
+HUGE INSIGHT
+Instead of:
+one interpolation
+compute:
+many interpolations simultaneously.
+Very important for NumPy/GPU systems.
+
+14. set_array_by_interpolation()
+
+PURPOSE
+Update existing arrays IN-PLACE.
+
+HUGE PYTHON INSIGHT
+arr = new_array
+creates new object.
+
+arr[:] = new_values
+keeps SAME object but changes contents.
+
+WHY IMPORTANT?
+Graphics engines avoid memory allocations heavily.
+
+15. clip()
+
+PURPOSE
+Restrict value inside range.
+
+EXAMPLE
+￼
+HUGE INSIGHT
+Acts like safety boundary for interpolation/animation systems.
+
+16. fdiv()
+Safe floating division helper.
+
+PURPOSE
+Prevent crashes from:
+division by zero
+
+HUGE INSIGHT
+Graphics engines prioritize:
+numerical robustness.
+
+17. binary_search()
+
+PURPOSE
+Find input producing desired output.
+
+HUGE INSIGHT
+Repeatedly halves search interval.
+Used for:
+inverse curve lookup
+timing systems
+root finding
+geometry solving
+
+18. sigmoid()
+VERY IMPORTANT.
+Formula:
+\frac{1}{1+e^{-x}}
+
+PURPOSE
+Smoothly map:
+(-∞,+∞)
+into:
+(0,1)
+
+SHAPE
+S-curve.
+
+HUGE INSIGHT
+Natural smooth transition:
+slow → fast → slow
+
+USED IN
+machine learning
+easing
+smooth animations
+probability systems
+
+19. sigmoid_derivative()
+Formula:
+s'(x)=s(x)(1-s(x))
+
+BIGGEST QUESTION WE SOLVED
+Why:
+s*(1-s)
+is derivative?
+
+ANSWER
+Because calculus proves:
+\frac{d}{dx}\left(\frac{1}{1+e^{-x}}\right)=s(x)(1-s(x))
+
+HUGE INSIGHT
+Derivative means:
+rate of change / steepness
+
+IMPORTANT BEHAVIOR
+￼
+MASSIVE ML INSIGHT
+Sigmoid derivative elegant because:
+derivative reuses sigmoid itself.
+
+BIGGEST CATEGORY 6 FINAL INSIGHT
+Bezier systems are NOT merely equations.
+They are:
+recursive interpolation architectures
+containing:
+smaller valid copies of themselves internally.
+
+BIGGEST SOFTWARE ENGINEERING INSIGHT
+Graphics/math engines separate:
+￼
+FINAL CORE MEMORY
+Everything ultimately grew from:
+(1-t)A+tB
+Repeated recursively,
+this created:
+Bezier curves,
+subdivision,
+animation systems,
+interpolation utilities,
+rendering structures,
+and smooth motion mathematics.

@@ -1,0 +1,321 @@
+15- Math For Nose
+
+Files in use:
+MANIM BASE:
+
+1. manimlib/typing.py
+2. manimlib/constants.py
+3. manimlib/utils/simple_functions.py
+4. manimlib/utils/iterables.py
+5. manimlib/utils/space_ops.py
+6. manimlib/utils/bezier.py
+7. manimlib/mobject/mobject.py
+8. manimlib/mobject/types/vectorized_mobject.py
+9. manimlib/mobject/geometry.py
+
+
+CREATURE PROJECT:
+9. mathlab_creature/config/sizes.py
+10. mathlab_creature/creature/parts/nose.py
+
+
+Good. Now we do NOSE only, deeply, same style as eyes.
+We will go step-by-step:
+what shape nose is
+what variables mean
+exact math of shape
+how it is positioned
+relation with eyes
+relation with mouth
+why numbers are chosen
+what breaks if changed
+
+1. First — What is the nose in this system?
+From your sizes.py (from your project notes):
+NOSE_WIDTH = 0.14
+NOSE_HEIGHT = 0.20
+NOSE_STROKE_WIDTH = 2
+So nose is defined by:
+width (left-right size)
+height (top-bottom size)
+stroke (thickness of outline)
+No radius here → means it is not a circle
+
+2. What shape is the nose mathematically?
+In your system, nose is typically created using:
+RoundedRectangle(width, height)
+So mathematically it is:
+a rectangle + rounded corners
+
+3. First understand simple rectangle
+If nose center is:
+N = (x_n, y_n)
+Then a rectangle of width w and height h centered at N is:
+x ∈ [x_n - w/2, x_n + w/2]
+y ∈ [y_n - h/2, y_n + h/2]
+Now plug your values:
+w = 0.14
+h = 0.20
+So:
+x ∈ [x_n - 0.07, x_n + 0.07]
+y ∈ [y_n - 0.10, y_n + 0.10]
+
+4. So nose region is
+A point (x, y) is inside nose if:
+|x - x_n| <= 0.07
+AND
+|y - y_n| <= 0.10
+This is a box constraint
+
+5. But nose is not sharp rectangle
+Corners are rounded.
+That means:
+Instead of hard edges like:
+|x - x_n| <= w/2
+|y - y_n| <= h/2
+we replace corners with circular arcs
+
+6. Rounded rectangle math (intuitive)
+Think like this:
+start with rectangle
+cut the 4 corners
+replace each corner with quarter-circle
+So final shape is:
+center rectangle
+4 curved edges
+
+7. Why nose is not circle or ellipse?
+Important design decision.
+Compare:
+If nose was circle:
+(x - x_n)^2 + (y - y_n)^2 <= R^2
+Problem:
+too soft
+blends with eye shape
+loses structure
+If nose was ellipse:
+(x - x_n)^2/a^2 + (y - y_n)^2/b^2 <= 1
+Problem:
+still too organic
+looks like second eye or blob
+Using rounded rectangle:
+Gives:
+flat sides → structure
+curved corners → softness
+So nose becomes:
+structured but not harsh
+
+8. Why these exact numbers?
+NOSE_WIDTH = 0.14
+NOSE_HEIGHT = 0.20
+Let us compare with eyes.
+From eyes:
+EYE_WIDTH = 0.42
+EYE_HEIGHT = 0.52
+Now ratios:
+Width ratio
+0.14 / 0.42 = 1/3
+So:
+nose width = 1/3 of eye width
+
+Height ratio
+0.20 / 0.52 ≈ 0.38
+So:
+nose height ≈ 38% of eye height
+
+9. Why nose must be smaller than eyes?
+Because of visual hierarchy.
+Face importance order:
+eyes > mouth > nose
+Mathematically:
+If nose width becomes:
+NOSE_WIDTH >= EYE_WIDTH
+then:
+nose dominates face
+eyes lose importance
+expression breaks
+So constraint:
+NOSE_WIDTH < EYE_WIDTH
+
+10. Why nose height is larger than width?
+Check:
+0.20 > 0.14
+So nose is vertically stretched.
+Why?
+Because face layout is vertical:
+eyes
+↓
+nose
+↓
+mouth
+So vertical elongation helps connect:
+eyes to mouth
+gives flow
+If nose was wide but short:
+face becomes flat
+no vertical continuity
+
+11. Now position of nose (MOST IMPORTANT)
+Nose is placed relative to eyes.
+From your system:
+nose_center = eye_midpoint - (NOSE_HEIGHT * 1.4) in y
+
+12. What is eye midpoint?
+Left eye center:
+C_L = (-g/2, y_eye)
+Right eye center:
+C_R = (g/2, y_eye)
+Midpoint:
+M = ((-g/2 + g/2)/2, (y_eye + y_eye)/2)
+  = (0, y_eye)
+So:
+nose x = 0 (centered) nose aligns exactly between eyes
+
+13. Now vertical placement
+y_nose = y_eye - (NOSE_HEIGHT × 1.4)
+Plug values:
+NOSE_HEIGHT = 0.20
+So:
+0.20 × 1.4 = 0.28
+So:
+y_nose = y_eye - 0.28
+
+14. Why multiply by 1.4?
+This is not random.
+This is proportional spacing.
+General idea:
+distance = k × size_of_part
+Here:
+distance = 1.4 × nose_height
+Why?
+Because:
+if nose becomes bigger → push it further down
+if nose becomes smaller → bring it closer to eyes
+So spacing automatically adjusts.
+
+15. What if we used fixed number instead?
+Example:
+y_nose = y_eye - 0.3
+Problem:
+If nose size changes:
+spacing becomes wrong
+face looks broken
+So proportional formula is better.
+
+16. Nose position constraint
+We must ensure:
+nose does not overlap with eyes
+Mathematically:
+Eye bottom:
+y_eye - EYE_HEIGHT/2 = y_eye - 0.26
+Nose top:
+y_nose + NOSE_HEIGHT/2 = y_nose + 0.10
+Now plug:
+y_nose = y_eye - 0.28
+So:
+nose top = (y_eye - 0.28) + 0.10 = y_eye - 0.18
+Compare:
+eye bottom = y_eye - 0.26
+nose top = y_eye - 0.18
+So:
+nose top is ABOVE eye bottom? No.
+Actually:
+-0.18 > -0.26
+So nose is below eyes, safe.
+Gap between them:
+0.26 - 0.18 = 0.08
+So small gap exists.
+Good.
+
+17. Why small gap is needed?
+If:
+gap = 0
+then nose touches eyes → looks merged.
+If:
+gap too big
+then face breaks into parts.
+So small positive gap is ideal.
+
+18. Now relation to mouth
+Later mouth is placed below nose:
+y_mouth = y_nose - (MOUTH_HEIGHT × 2.1)
+So chain becomes:
+eyes
+↓ (proportional)
+nose
+↓ (proportional)
+mouth
+This creates a vertical proportional chain
+
+19. What happens if NOSE_WIDTH increases?
+If:
+NOSE_WIDTH = 0.30
+Then:
+nose becomes almost eye size
+center becomes heavy
+face loses expression clarity
+
+20. What happens if NOSE_HEIGHT increases?
+Then:
+nose becomes long
+pushes mouth down
+face stretches
+Because placement depends on height:
+y_nose = y_eye - (NOSE_HEIGHT × 1.4)
+So bigger height = bigger downward shift
+
+21. What happens if NOSE_HEIGHT is too small?
+Then:
+nose becomes tiny
+spacing becomes small
+looks like missing feature
+
+22. Stroke width math
+NOSE_STROKE_WIDTH = 2
+Compare with body:
+BODY_STROKE ≈ 18
+So ratio:
+2 / 18 ≈ 0.11
+So nose lines are thin.
+Why?
+nose is detail
+body is structure
+So:
+detail stroke << structure stroke
+
+23. Final nose math model
+Shape
+Rectangle:
+|x - x_n| <= 0.07
+|y - y_n| <= 0.10
+with rounded corners
+
+Position
+x_n = 0
+y_n = y_eye - (0.20 × 1.4)
+
+Relation
+centered between eyes
+below eyes
+above mouth
+
+Constraints
+smaller than eyes
+not touching eyes
+not touching mouth
+maintains vertical flow
+
+24. Most important understanding
+Nose is NOT just a shape.
+It is:
+a connector between eyes and mouth
+Mathematically:
+its size controls spacing
+its position depends on eyes
+mouth depends on it
+So it sits in middle of a dependency chain
+
+25. One-line summary
+Nose =
+a vertically stretched rounded rectangle centered between eyes, placed using a proportional downward offset from eye midpoint, and sized to stay visually subordinate while maintaining structural continuity of the face.
+

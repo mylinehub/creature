@@ -1,0 +1,666 @@
+10 -  Creature / mascot - Mylinehub
+
+
+Project name locked:
+mathlab-mylinehub-creature
+This will be a fresh project, built cleanly, with small files, clear responsibilities, and room to grow into many scenes later.
+Your rule is correct:
+small files
+low file length
+separated responsibilities
+easy to understand
+easy to extend
+scene-wise growth
+later can go into your Projects section
+
+
+First, setup environment:
+mkdir mathlab-mylinehub-creature
+cd mathlab-mylinehub-creature
+
+python3.10 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip setuptools wheel
+pip install manimgl
+
+INITIAL COMMANDS TO CREATE PROJECT FILES
+touch README.md requirements.txt .gitignore
+mkdir -p config core creature scenes docs assets
+touch config/__init__.py core/__init__.py creature/__init__.py scenes/__init__.py
+
+mkdir -p \
+  config \
+  core \
+  creature/parts \
+  creature/rigs \
+  creature/poses \
+  creature/actions \
+  props \
+  scenes/tests \
+  scenes/character \
+  scenes/lessons \
+  docs \
+  assets/refs \
+  assets/svg && \
+touch \
+  README.md \
+  requirements.txt \
+  .gitignore \
+  render_scene.py \
+  config/__init__.py \
+  config/colors.py \
+  config/sizes.py \
+  config/timings.py \
+  config/defaults.py \
+  core/__init__.py \
+  core/geometry.py \
+  core/anchors.py \
+  core/layout.py \
+  core/motion.py \
+  core/naming.py \
+  creature/__init__.py \
+  creature/myline_m_creature.py \
+  creature/parts/__init__.py \
+  creature/parts/body_m.py \
+  creature/parts/eyes.py \
+  creature/parts/nose.py \
+  creature/parts/mouth.py \
+  creature/parts/hat.py \
+  creature/parts/arms.py \
+  creature/parts/hands.py \
+  creature/parts/legs.py \
+  creature/parts/feet.py \
+  creature/rigs/__init__.py \
+  creature/rigs/face_rig.py \
+  creature/rigs/arm_rig.py \
+  creature/rigs/leg_rig.py \
+  creature/rigs/body_rig.py \
+  creature/poses/__init__.py \
+  creature/poses/neutral_pose.py \
+  creature/poses/happy_pose.py \
+  creature/poses/teacher_pose.py \
+  creature/poses/pointing_pose.py \
+  creature/poses/thinking_pose.py \
+  creature/actions/__init__.py \
+  creature/actions/blink_action.py \
+  creature/actions/look_action.py \
+  creature/actions/wave_action.py \
+  creature/actions/point_action.py \
+  creature/actions/hop_action.py \
+  creature/actions/walk_action.py \
+  props/__init__.py \
+  props/pointer_stick.py \
+  props/math_board.py \
+  props/formula_card.py \
+  props/axis_plane.py \
+  scenes/__init__.py \
+  scenes/tests/__init__.py \
+  scenes/tests/test_boot_scene.py \
+  scenes/tests/test_body_scene.py \
+  scenes/tests/test_face_scene.py \
+  scenes/tests/test_hat_scene.py \
+  scenes/tests/test_limbs_scene.py \
+  scenes/tests/test_pose_scene.py \
+  scenes/tests/test_actions_scene.py \
+  scenes/character/__init__.py \
+  scenes/character/mascot_intro_scene.py \
+  scenes/character/mascot_wave_scene.py \
+  scenes/character/mascot_walk_scene.py \
+  scenes/character/mascot_point_scene.py \
+  scenes/character/mascot_teach_scene.py \
+  scenes/lessons/__init__.py \
+  scenes/lessons/vectors_intro_scene.py \
+  scenes/lessons/coordinates_intro_scene.py \
+  scenes/lessons/matrix_intro_scene.py \
+  docs/project_plan.md \
+  docs/creature_design_notes.md \
+  docs/file_responsibilities.md \
+  docs/animation_notes.md
+
+
+1. What this project is
+This project is for building a reusable animated MYLINEHUB mascot:
+capital M body
+eyes
+hat
+nose
+mouth
+hands
+legs
+later pointer/stick
+later teaching / walking / reacting / explaining maths
+It is not just one animation. It is a character framework.
+So from day 1, we design it like a proper reusable system.
+
+2. Main project goals
+We need this project to support 4 things:
+A. Character creation
+Build the mascot itself.
+B. Character control
+Control face, pose, limbs, movement.
+C. Scene building
+Put mascot into scenes.
+D. Learning Manim properly
+Use this project to understand:
+grouping
+transforms
+anchors
+coordinate space
+movement
+reusable animation design
+
+3. Design principles
+These are very important. I will follow these throughout.
+Principle 1: Small files
+No giant file unless absolutely needed.
+Principle 2: One file = one responsibility
+Example:
+hat logic in hat file
+face logic in face file
+walk action in walk/actions file
+Principle 3: Reusable parts
+Character should be buildable once, usable everywhere.
+Principle 4: Clear naming
+You should be able to read structure and understand what each file is for.
+Principle 5: Test scenes first
+Before making final polished scenes, first make small test scenes.
+That avoids confusion.
+
+4. Best top-level project structure
+Here is the project structure I recommend.
+mathlab-mylinehub-creature/
+│
+├── README.md
+├── requirements.txt
+├── render_scene.py
+├── .gitignore
+│
+├── config/
+│   ├── __init__.py
+│   ├── colors.py
+│   ├── sizes.py
+│   ├── timings.py
+│   └── defaults.py
+│
+├── core/
+│   ├── __init__.py
+│   ├── geometry.py
+│   ├── anchors.py
+│   ├── layout.py
+│   ├── motion.py
+│   └── naming.py
+│
+├── creature/
+│   ├── __init__.py
+│   ├── myline_m_creature.py
+│   │
+│   ├── parts/
+│   │   ├── __init__.py
+│   │   ├── body_m.py
+│   │   ├── eyes.py
+│   │   ├── nose.py
+│   │   ├── mouth.py
+│   │   ├── hat.py
+│   │   ├── arms.py
+│   │   ├── hands.py
+│   │   ├── legs.py
+│   │   └── feet.py
+│   │
+│   ├── rigs/
+│   │   ├── __init__.py
+│   │   ├── face_rig.py
+│   │   ├── arm_rig.py
+│   │   ├── leg_rig.py
+│   │   └── body_rig.py
+│   │
+│   ├── poses/
+│   │   ├── __init__.py
+│   │   ├── neutral_pose.py
+│   │   ├── happy_pose.py
+│   │   ├── teacher_pose.py
+│   │   ├── pointing_pose.py
+│   │   └── thinking_pose.py
+│   │
+│   └── actions/
+│       ├── __init__.py
+│       ├── blink_action.py
+│       ├── look_action.py
+│       ├── wave_action.py
+│       ├── point_action.py
+│       ├── hop_action.py
+│       └── walk_action.py
+│
+├── props/
+│   ├── __init__.py
+│   ├── pointer_stick.py
+│   ├── math_board.py
+│   ├── formula_card.py
+│   └── axis_plane.py
+│
+├── scenes/
+│   ├── __init__.py
+│   │
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── test_body_scene.py
+│   │   ├── test_face_scene.py
+│   │   ├── test_hat_scene.py
+│   │   ├── test_limbs_scene.py
+│   │   ├── test_pose_scene.py
+│   │   └── test_actions_scene.py
+│   │
+│   ├── character/
+│   │   ├── __init__.py
+│   │   ├── mascot_intro_scene.py
+│   │   ├── mascot_wave_scene.py
+│   │   ├── mascot_walk_scene.py
+│   │   ├── mascot_point_scene.py
+│   │   └── mascot_teach_scene.py
+│   │
+│   └── lessons/
+│       ├── __init__.py
+│       ├── vectors_intro_scene.py
+│       ├── coordinates_intro_scene.py
+│       └── matrix_intro_scene.py
+│
+├── assets/
+│   ├── refs/
+│   │   ├── logo_refs/
+│   │   ├── sketch_refs/
+│   │   └── pose_refs/
+│   └── svg/
+│       ├── hats/
+│       └── props/
+│
+└── docs/
+    ├── project_plan.md
+    ├── creature_design_notes.md
+    ├── file_responsibilities.md
+    └── animation_notes.md
+
+5. Why this structure is good
+This is not random splitting. Each folder has a clear purpose.
+config/
+Only constants and design values.
+Examples:
+colors
+default scale
+eye size
+hat size
+animation durations
+No heavy character logic here.
+
+core/
+Reusable mathematical helpers.
+This is where we keep utility logic like:
+point helpers
+anchor helpers
+motion helpers
+spacing helpers
+This prevents duplication.
+
+creature/
+The heart of the mascot.
+This is split into 4 layers:
+parts/
+Raw body parts.
+rigs/
+How body parts move or attach.
+poses/
+Static named body arrangements.
+actions/
+Actual animations and movements.
+That separation is very important.
+
+props/
+Anything the character uses or points at.
+Example:
+stick
+board
+axis plane
+formula card
+These are not part of the body, so they stay separate.
+
+scenes/
+Only scene composition.
+Scene files should never become storage for body-construction logic.
+That logic belongs in creature/.
+
+docs/
+This is useful because you are learning. We can keep learning notes and architecture notes there.
+
+6. Development order
+We should not create all files immediately. We create them in the right order.
+Phase 1 — foundation
+Create base project and config/core helpers.
+Phase 2 — creature body
+Make static M character with body + face + hat.
+Phase 3 — limbs
+Add arms, hands, legs, feet.
+Phase 4 — rigs and poses
+Make named poses and attach motion points.
+Phase 5 — actions
+Blink, look, wave, point, hop, walk.
+Phase 6 — scene composition
+Use the mascot in test and intro scenes.
+
+7. First files we should create
+These are the first files to create from scratch.
+Root files
+README.md
+requirements.txt
+.gitignore
+render_scene.py
+Config
+config/__init__.py
+config/colors.py
+config/sizes.py
+config/timings.py
+config/defaults.py
+Core
+core/__init__.py
+core/geometry.py
+core/anchors.py
+Creature foundation
+creature/__init__.py
+creature/myline_m_creature.py
+creature/parts/__init__.py
+creature/parts/body_m.py
+creature/parts/eyes.py
+creature/parts/nose.py
+creature/parts/mouth.py
+creature/parts/hat.py
+First scene tests
+scenes/__init__.py
+scenes/tests/__init__.py
+scenes/tests/test_body_scene.py
+scenes/tests/test_face_scene.py
+scenes/tests/test_hat_scene.py
+This is enough to start properly.
+
+8. File responsibilities in simple language
+Now I’ll explain what each early file should do.
+
+README.md
+Project overview:
+what the project is
+how to run scenes
+how folders are organized
+
+requirements.txt
+Dependencies list.
+Likely:
+manimgl or chosen manim version
+numpy
+svg/path-related libs if needed later
+
+render_scene.py
+Small helper script to render scenes more easily.
+Example idea:
+select scene class
+build shell command
+run it
+Later useful.
+
+config/colors.py
+All colors in one place.
+Example:
+M body color
+eye white
+pupil color
+mouth color
+hat color
+outline color
+
+config/sizes.py
+All sizes in one place.
+Example:
+character base height
+eye radius
+pupil radius
+hat height
+arm thickness
+leg thickness
+
+config/timings.py
+Animation timing constants.
+Example:
+blink duration
+wave duration
+walk step time
+
+config/defaults.py
+General default settings:
+default stroke width
+scale factors
+spacing
+default emotion
+default pose
+
+core/geometry.py
+Basic geometric helpers.
+Likely functions:
+midpoint
+lerp
+angle_of_vector
+point_at_distance
+rotate_point_about_origin
+This becomes very useful later.
+
+core/anchors.py
+Anchor-point helpers.
+Likely functions:
+get_top_center
+get_left_shoulder_anchor
+get_right_shoulder_anchor
+get_face_center
+get_hat_base_anchor
+This is one of the most important files later.
+
+creature/parts/body_m.py
+Construct the M body only.
+This should not include eyes, mouth, hat, arms, etc.
+Only body.
+
+creature/parts/eyes.py
+Construct eye objects:
+eye whites
+pupils
+maybe blink states later
+
+creature/parts/nose.py
+Construct simple nose.
+
+creature/parts/mouth.py
+Construct simple mouth shapes.
+
+creature/parts/hat.py
+Construct triangular hat.
+
+creature/myline_m_creature.py
+Main assembly class.
+This file will:
+create body
+create face
+create hat
+combine them
+expose grouped character object
+This is the first true “mascot class”.
+
+scenes/tests/test_body_scene.py
+Render only body. Check if M shape feels right.
+
+scenes/tests/test_face_scene.py
+Render body + face. Check eyes, nose, mouth positioning.
+
+scenes/tests/test_hat_scene.py
+Render body + face + hat. Check top alignment and silhouette.
+
+9. Keep file sizes small
+You said file sizes should stay small. Correct.
+My recommendation:
+ideal file length
+40 to 120 lines for most files
+150 lines max if truly needed
+avoid 300+ line files unless it is a high-level scene/demo file
+how to keep files small
+one class or one concern per file
+helper functions moved to core/
+avoid storing many poses in one big file
+avoid mixing construction and animation logic
+This is exactly why we split into:
+parts
+rigs
+poses
+actions
+
+10. What types of functions we will use
+You asked about “types of function”.
+These are the kinds we will write.
+A. Constructor/build functions
+Create shapes.
+Examples:
+build_body_m()
+build_hat()
+build_eyes()
+
+B. Anchor functions
+Return important points.
+Examples:
+get_face_center()
+get_left_hand_anchor()
+
+C. Arrange/alignment functions
+Place one part relative to another.
+Examples:
+place_hat_above_body()
+place_eyes_on_face_line()
+
+D. Pose functions
+Set static body arrangement.
+Examples:
+apply_neutral_pose()
+apply_teacher_pose()
+
+E. Animation/action functions
+Do movement over time.
+Examples:
+blink()
+wave()
+point_to_object()
+
+F. Scene composition functions
+Used inside scene files to present objects and actions.
+Examples:
+introduce_creature()
+show_formula_and_point()
+
+11. Best development sequence from zero
+If we are starting completely from scratch, this is the correct order:
+Step 1
+Create root and config/core folders.
+Step 2
+Create body_m.py.
+Step 3
+Create eyes.py, nose.py, mouth.py, hat.py.
+Step 4
+Create myline_m_creature.py to assemble them.
+Step 5
+Create 3 test scenes:
+body
+face
+hat
+Step 6
+Review shape and proportions.
+Step 7
+Add limbs:
+arms
+hands
+legs
+feet
+Step 8
+Create anchor helpers.
+Step 9
+Add poses.
+Step 10
+Add blink / wave / point.
+That is the safest and cleanest route.
+
+12. Immediate action plan
+Here is the exact plan I suggest now.
+We first create these files in order:
+Round 1
+README.md
+requirements.txt
+config/colors.py
+config/sizes.py
+config/defaults.py
+Round 2
+core/geometry.py
+core/anchors.py
+Round 3
+creature/parts/body_m.py
+Round 4
+creature/parts/eyes.py
+creature/parts/nose.py
+creature/parts/mouth.py
+creature/parts/hat.py
+Round 5
+creature/myline_m_creature.py
+Round 6
+scenes/tests/test_body_scene.py
+scenes/tests/test_face_scene.py
+scenes/tests/test_hat_scene.py
+This is the clean bootstrap.
+
+13. What I recommend you do next
+You said:
+I will give file names one by one. Then code file and explain it.
+That is perfect.
+We should do it exactly that way.
+Start with one of these:
+README.md
+requirements.txt
+config/colors.py
+config/sizes.py
+creature/parts/body_m.py
+
+14. Best first coding file
+The best first actual code file is:
+config/colors.py
+Because:
+tiny
+easy
+useful
+foundation for later files
+After that:
+config/sizes.py
+After that:
+creature/parts/body_m.py
+That will let us begin real mascot construction.
+
+15. Final locked project plan
+Project name:
+mathlab-mylinehub-creature
+Initial architecture:
+modular
+small files
+scene-separated
+reusable mascot
+built from scratch
+Primary early modules:
+config
+core
+creature parts
+assembly
+test scenes
+Primary early mascot milestone:
+static M body
+face
+hat
+then limbs
+then poses
+then actions
+
+Send the first filename, and I’ll write the full file and explain it.

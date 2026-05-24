@@ -1,0 +1,284 @@
+2- Libraries used for mania
+
+Below is a practical guide to each library in your list. I will keep each one in a similar format:
+Library name What it does Where it is used 2–3 examples
+I will also explain the two conditional lines first.
+
+First, these two special requirement lines
+audioop-lts; python_version >= '3.13'
+This means: install audioop-lts only when Python version is 3.13 or above. audioop was removed from newer Python versions, so this package gives long-term support compatibility. It is mainly used for basic audio processing, like sample conversion, RMS volume, mono/stereo changes, and frame operations. Example uses: converting audio sample width, checking audio loudness, mixing raw PCM streams.
+typing-extensions; python_version < '3.11'
+This means: install typing-extensions only when Python is below 3.11. It gives newer type-hinting features to older Python versions. Useful when a library uses modern typing like Literal, TypedDict, NotRequired, Self, etc. Example uses: cleaner type hints in frameworks, better static checking, forward compatibility for older Python.
+
+Library by library
+1) addict
+addict is a small library that lets you use dictionaries like objects. Instead of writing data["user"]["name"], you can write data.user.name. It is useful when config objects or nested JSON become large and repetitive. This makes code feel cleaner, especially for settings and structured data.
+Examples:
+Reading config values as cfg.database.host
+Building nested objects without manually creating many dictionaries
+Handling JSON responses in a more readable way
+
+2) appdirs
+appdirs helps find the correct OS-specific folders for app data, cache, config, and logs. Different systems store these in different locations, and this library hides that complexity. It is useful when making desktop tools or apps that must save files properly. Instead of hardcoding paths, you ask appdirs for the right folder.
+Examples:
+Store app config in the correct macOS/Windows/Linux config folder
+Save cache files in the user cache directory
+Save logs in the platform-appropriate application data area
+
+3) audioop-lts
+This provides low-level audio operations for raw audio frames. It is useful for PCM audio manipulation without needing a heavy audio framework. You can do operations like changing sample width, calculating RMS, or mixing frames. In media or voice tools, this helps when working directly with raw audio bytes.
+Examples:
+Convert 16-bit audio to 8-bit audio
+Measure volume of a PCM chunk using RMS
+Mix two raw PCM streams together
+
+4) colour
+colour is for working with colors, color spaces, color conversions, and color utilities. It helps when you need more than simple RGB values. You can convert between representations and generate or manipulate colors mathematically. Useful in graphics, animation, design tools, and visualization systems.
+Examples:
+Convert a hex color like #ff0000 into RGB components
+Generate gradients between two colors
+Adjust luminance or transform color models
+
+5) diskcache
+diskcache provides a cache that stores data on disk, not just in RAM. It is useful when cached data should survive restarts or when data is too large for memory alone. Compared to plain dictionaries, it can hold bigger data more safely. Good for memoization, API results, generated media, and expensive computation outputs.
+Examples:
+Cache processed SVG or text layout results
+Store API response results to avoid repeated calls
+Save intermediate render data between runs
+
+6) ipython>=8.18.0
+IPython is an enhanced interactive Python shell. It gives a much better terminal experience than normal Python REPL. You get history, auto-completion, rich output, magic commands, and easier debugging. It is widely used during development, experiments, and quick testing.
+Examples:
+Test a function quickly in an interactive shell
+Inspect objects with tab-completion
+Run %timeit to measure performance of code snippets
+
+7) isosurfaces
+isosurfaces is used for creating surfaces from volumetric or scalar field data. An isosurface is a 3D surface representing all points with the same value in a field. This is useful in scientific visualization, 3D geometry, and simulation output. In rendering or math tools, it helps convert field data into visible mesh-like shapes.
+Examples:
+Build a 3D surface from density data
+Visualize mathematical scalar fields
+Generate geometry for scientific or graphical scenes
+
+8) fontTools
+fontTools is a powerful toolkit for inspecting, editing, and generating font files. It is commonly used with .ttf, .otf, and glyph-level font operations. It helps when text rendering depends on actual font structure. Useful in typography engines, SVG text work, and animation systems that convert text to shapes.
+Examples:
+Read glyph outlines from a font file
+Inspect font metadata and tables
+Subset a font to include only required characters
+
+9) manimpango>=0.6.0
+manimpango is used by Manim for text layout and text rendering. It relies on the Pango text engine, which handles font shaping and layout. This is important because text is not just letters; it also includes spacing, glyph shaping, and line arrangement. For animated math/text scenes, this is one of the core text-rendering dependencies.
+Examples:
+Render styled text into an animation scene
+Lay out multilingual or special-character text correctly
+Convert text into vector-renderable shapes for animation
+
+10) mapbox-earcut
+mapbox-earcut is a very fast polygon triangulation library. Triangulation means breaking a polygon into triangles so graphics systems can render it. This is important because GPUs work very naturally with triangles. It is useful when filling 2D shapes or rendering complex paths.
+Examples:
+Convert a polygon into triangles for OpenGL rendering
+Fill SVG-like vector paths on screen
+Render complex 2D shapes with holes
+
+11) matplotlib
+matplotlib is one of the most widely used plotting libraries in Python. It creates charts, graphs, line plots, scatter plots, histograms, and more. It is heavily used in science, engineering, ML, and data analysis. It can also save graphs as images for reports or animations.
+Examples:
+Plot a sine wave
+Draw a bar chart of category values
+Save a graph as PNG for later use
+
+12) moderngl
+moderngl is a modern OpenGL wrapper for Python. It gives lower-level GPU control for rendering graphics efficiently. This is useful for 2D/3D rendering, shaders, animation engines, and custom visualization. Compared to simple plotting libraries, this is much closer to graphics programming.
+Examples:
+Render 3D objects using GPU shaders
+Draw custom animated geometry in real time
+Create framebuffers and render off-screen
+
+13) moderngl_window
+moderngl_window adds a windowing/application layer around moderngl. It helps create render windows, handle input, and manage render loops. Without it, you would need more manual setup for window creation and event handling. It is useful for graphics apps, demos, and interactive GPU experiments.
+Examples:
+Open a desktop rendering window for OpenGL output
+Handle mouse and keyboard input in a graphics demo
+Manage animation frame updates cleanly
+
+14) numpy
+numpy is the foundation of numerical computing in Python. It provides arrays, fast math operations, vectorized computation, and matrix support. A huge part of scientific Python depends on it. Whenever performance and array math matter, numpy is usually involved.
+Examples:
+Store point coordinates for graphics
+Perform matrix multiplication
+Generate numerical ranges and compute trigonometric values efficiently
+
+15) Pillow
+Pillow is the standard Python imaging library. It is used to open, edit, resize, transform, and save images. Useful in image pipelines, thumbnails, texture preparation, screenshots, and media tools. It supports many common image formats.
+Examples:
+Resize a PNG image
+Add text or simple drawing onto an image
+Convert an image from RGB to grayscale
+
+16) pydub
+pydub is a higher-level audio manipulation library. It makes working with audio files easier than dealing with raw PCM directly. You can slice audio, concatenate segments, adjust volume, and export in different formats. It is useful in speech, music, preprocessing, and media automation.
+Examples:
+Trim the first 10 seconds of an audio file
+Combine multiple audio clips into one file
+Increase or decrease volume of a segment
+
+17) pygments
+pygments is a syntax highlighting library. It takes source code and converts it into colored/styled output. It supports many programming languages and many output formats. Useful in documentation, code viewers, notebooks, and rendered tutorials.
+Examples:
+Highlight Python code in HTML
+Create styled code blocks in documentation
+Convert source code into formatted output for display
+
+18) PyOpenGL
+PyOpenGL is another Python interface to OpenGL. It gives access to classic OpenGL APIs directly from Python. Compared to moderngl, it is usually more verbose and lower-level in style. It is useful when following classic OpenGL tutorials or older rendering pipelines.
+Examples:
+Draw triangles using OpenGL commands
+Work with transformation matrices and buffers
+Build custom 3D rendering examples
+
+19) pyperclip
+pyperclip provides simple clipboard copy/paste support. It lets your Python program interact with the system clipboard. This is useful in tools, scripts, editors, and utilities. Very small library, but handy in desktop workflows.
+Examples:
+Copy generated text to clipboard
+Paste clipboard content into a script
+Build a quick productivity tool that moves text between app and Python
+
+20) pywavefront
+pywavefront loads Wavefront .obj 3D model files. It is useful when your program wants to import 3D models without writing a parser yourself. Wavefront OBJ is a common exchange format for meshes. This is useful in 3D rendering demos, model viewers, and asset loading pipelines.
+Examples:
+Load an .obj model into a Python 3D program
+Read mesh vertices and faces for rendering
+Import a model created in Blender or another 3D tool
+
+21) pyyaml
+PyYAML reads and writes YAML files. YAML is often used for configuration because it is more readable than raw JSON for humans. This library is common in config-heavy projects. It helps convert YAML text into Python data structures and back.
+Examples:
+Load app configuration from config.yaml
+Save structured settings into a YAML file
+Parse nested deployment or pipeline config files
+
+22) rich
+rich makes terminal output beautiful and easier to read. It supports colors, tables, panels, progress bars, syntax highlighting, and tracebacks. Very useful for CLI tools and developer-facing output. It helps a terminal app feel much more professional.
+Examples:
+Show a colored progress bar while processing files
+Print a formatted table of results
+Display better error tracebacks in terminal
+
+23) scipy
+scipy builds on numpy and provides advanced scientific algorithms. It includes optimization, linear algebra, interpolation, statistics, signal processing, and more. It is widely used in engineering, ML support code, and scientific computing. Whenever you need deeper math than plain arrays, scipy often appears.
+Examples:
+Solve optimization problems
+Perform signal filtering on audio data
+Use advanced linear algebra routines
+
+24) screeninfo
+screeninfo gives information about connected monitors and their sizes/resolutions. It is useful in apps that need to position windows or adapt to screen layout. For graphics software, display size can affect rendering choices. This is a helper library for environment awareness.
+Examples:
+Detect monitor width and height
+Decide where to place a graphics window
+Support multi-monitor behavior in a desktop app
+
+25) setuptools
+setuptools is one of the core packaging/build tools in Python. It helps install packages, define package metadata, and manage builds. Most Python projects depend on it either directly or indirectly. Even when you do not use it explicitly, it is often part of the packaging system.
+Examples:
+Install a Python package from source
+Define package metadata in a project
+Build distributable Python packages
+
+26) skia-pathops
+skia-pathops performs boolean operations on vector paths. That means combining, subtracting, intersecting, or simplifying shapes. It is very useful in vector graphics, font outlines, and rendering engines. When shapes overlap, this library helps calculate the final visible geometry.
+Examples:
+Union two vector shapes into one
+Subtract one path from another
+Simplify complex overlapping outlines
+
+27) svgelements>=1.8.1
+svgelements parses and works with SVG graphics elements. SVG files contain vector shapes like lines, circles, curves, and paths. This library helps read those elements into Python objects. Very useful in vector rendering pipelines and animation tools.
+Examples:
+Load an SVG and inspect each path
+Read transform information from vector graphics
+Convert SVG shapes into programmatic geometry
+
+28) sympy
+sympy is a symbolic mathematics library. Unlike numpy, which focuses on numeric values, sympy can manipulate formulas symbolically. It is useful for algebra, calculus, simplification, equation solving, and exact symbolic work. Great when you want mathematics as expressions, not just approximated numbers.
+Examples:
+Solve an equation like x^2 - 4 = 0 symbolically
+Simplify algebraic expressions
+Compute derivatives and integrals symbolically
+
+29) trimesh
+trimesh is a library for loading, analyzing, and manipulating triangular meshes. It is very useful in 3D geometry workflows. You can inspect mesh properties, transform objects, or export them. Common in CAD-like scripts, geometry processing, and 3D rendering prep.
+Examples:
+Load a mesh file and inspect its vertices
+Compute bounding boxes or surface properties
+Apply transformations like scaling and rotation to a model
+
+30) tqdm
+tqdm adds progress bars to loops and iterable operations. It is simple but extremely useful when tasks take time. This improves visibility during data processing, rendering, downloads, or batch jobs. Very commonly used in scripts and notebooks.
+Examples:
+Show progress while iterating through 10,000 files
+Track frame generation during rendering
+Monitor progress of batch preprocessing
+
+31) typing-extensions
+typing-extensions backports newer typing features to older Python versions. It is mostly for developers and library compatibility, not end-user visible behavior. This helps codebases use modern type annotations before the base Python version supports them natively. Useful in bigger codebases where type checking matters.
+Examples:
+Use TypedDict in older Python versions
+Use Literal or Self before native availability
+Keep one codebase compatible across multiple Python versions
+
+32) validators
+validators provides helper functions to validate common text patterns. It can check things like URLs, emails, domains, IP addresses, and other structured strings. Useful in forms, config validation, CLI input checks, and web-related tools. Instead of writing regex manually, you call readable validation helpers.
+Examples:
+Check whether a string is a valid URL
+Validate that input looks like an email address
+Verify domain/IP format before using it
+
+Big-picture understanding of this requirements list
+This set of libraries strongly suggests a project related to:
+graphics / animation / rendering
+text and font shaping
+SVG and vector geometry
+OpenGL / GPU drawing
+audio handling
+scientific math
+developer tooling
+So overall, this looks very much like a Manim / graphics-heavy Python project or a rendering system around mathematical animation.
+You can think of the list in groups:
+Graphics and rendering
+moderngl, moderngl_window, PyOpenGL, mapbox-earcut, pywavefront, trimesh, skia-pathops, svgelements, isosurfaces
+Math and computation
+numpy, scipy, sympy
+Text and fonts
+fontTools, manimpango, pygments
+Images and audio
+Pillow, pydub, audioop-lts
+Config and utility
+appdirs, diskcache, pyyaml, validators, pyperclip, screeninfo, tqdm, rich, setuptools
+Developer experience
+ipython, typing-extensions
+
+Very simple analogy for you
+If this were like a Java project:
+numpy/scipy/sympy are like your math engine
+moderngl/PyOpenGL are like your graphics engine
+manimpango/fontTools/svgelements are like your text + vector drawing system
+Pillow/pydub/audioop-lts are like media utilities
+pyyaml/appdirs/diskcache are like config + storage helpers
+rich/tqdm/ipython are like developer comfort tools
+
+Which ones are most important to understand first
+For practical learning, start with these first:
+numpy
+Pillow
+matplotlib
+sympy
+pyyaml
+rich
+moderngl
+svgelements
+fontTools
+manimpango
+These will give you the best conceptual foundation.
+I can next turn this into a table with columns: library, category, purpose, examples, or I can make a Java-developer-focused version where I compare each library to the closest Java idea.
