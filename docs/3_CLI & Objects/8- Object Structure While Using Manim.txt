@@ -85,7 +85,7 @@ copying
 adding children / submobjects
 moving / scaling / rotating
 updater support
-So Mobject is not yet specifically “a vector path”. It is the general concept of “something that can appear in a scene.”
+So Mobject is not yet specifically “a vector path”.It is the general concept of “something that can appear in a scene.”
 Mental model
 Think:
 Mobject = general visual thing
@@ -177,7 +177,7 @@ SVGMobject parses it
    ↓
 VMobject (points)
 and explicitly say:
-Text() is not text it becomes vector paths.
+Text() is not textit becomes vector paths.
 So by the time Text is rendered/animated, it is stored as geometry, not as “live editable text” like in a word processor.
 Mental model
 Think:
@@ -245,7 +245,7 @@ show_animation_progress
 leave_progress_bars
 preview_while_skipping
 default_wait_time
-These are not shape styles. They are scene execution defaults.
+These are not shape styles.They are scene execution defaults.
 
 D. tex: level
 Defaults specific to the TeX rendering system.
@@ -295,7 +295,7 @@ Write = reveal text/formula as if written
 FadeIn / FadeOut = softly appear/disappear
 Transform = morph one object into another
 LaggedStart = stagger multiple animations
-So animation objects are not visible shapes themselves. They are objects describing how visible objects change over time.
+So animation objects are not visible shapes themselves.They are objects describing how visible objects change over time.
 
 14. Scene object — top runtime container
 File

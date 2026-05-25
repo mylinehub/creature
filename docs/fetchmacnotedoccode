@@ -1,0 +1,55 @@
+set exportFolder to ((POSIX path of (path to desktop)) & "NotesExport/")
+
+do shell script "mkdir -p " & quoted form of exportFolder
+
+tell application "Notes"
+	repeat with acc in every account
+		repeat with folderRef in every folder of acc
+			set folderName to my cleanFileName(name of folderRef)
+			set folderPath to exportFolder & folderName & "/"
+			
+			do shell script "mkdir -p " & quoted form of folderPath
+			
+			repeat with noteRef in every note of folderRef
+				try
+					set noteTitle to name of noteRef
+					
+					if noteTitle is missing value or noteTitle is "" then
+						set noteTitle to "Untitled"
+					end if
+					
+					set noteTitle to my cleanFileName(noteTitle)
+					
+					set noteText to plaintext of noteRef
+					
+					set outputFile to folderPath & noteTitle & ".txt"
+					
+					set fileHandle to open for access (POSIX file outputFile) with write permission
+					set eof of fileHandle to 0
+					write noteText to fileHandle as «class utf8»
+					close access fileHandle
+					
+				on error
+					try
+						close access fileHandle
+					end try
+				end try
+			end repeat
+		end repeat
+	end repeat
+end tell
+
+on cleanFileName(theText)
+	set badChars to {"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	
+	repeat with badChar in badChars
+		set AppleScript's text item delimiters to badChar
+		set textItems to every text item of theText
+		set AppleScript's text item delimiters to "-"
+		set theText to textItems as text
+	end repeat
+	
+	set AppleScript's text item delimiters to ""
+	
+	return theText
+end cleanFileName

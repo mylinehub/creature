@@ -1,154 +1,434 @@
+# File: mathlab_creature/scenes/tests/test_actions_scene.py
+
 """
-Action test scene for mathlab-mylinehub-creature.
+mathlab_creature/scenes/tests/test_actions_scene.py
 
-Purpose:
-- verify action helpers work on the full creature rig
-- test blink
-- test look
-- test wave
-- test point
-- test hop
-- test walk
+MASTER ACTION INTEGRATION TEST SCENE
+WITH PROCEDURAL AUDIO VALIDATION
 
-This scene is a development playground for early action validation.
-It is intentionally simple and sequential.
+Purpose
+-------
+Integration validation for:
+- movement controller
+- walk system
+- turn system
+- idle system
+- visibility system
+- procedural body rig
+- cinematic camera
+- procedural audio system
+- action audio synchronization
+
+IMPORTANT
+---------
+This is NOT:
+- low-level IK testing
+- debug geometry testing
+- isolated limb testing
+
+Those belong in dedicated scenes.
+
+This scene validates:
+FULL CREATURE BEHAVIOR.
 """
 
 from __future__ import annotations
 
-from manimlib import DOWN
-from manimlib import FadeIn
-from manimlib import Scene
-from manimlib import Text
-from manimlib import VGroup
+import numpy as np
 
-from mathlab_creature.config.defaults import DEFAULT_SCENE_BACKGROUND_COLOR
-from mathlab_creature.config.defaults import DEFAULT_WAIT_TIME
-from mathlab_creature.config.defaults import DEFAULT_SHOW_DEBUG_LABELS
-from mathlab_creature.config.defaults import LOG_SCENE_EVENTS
+from manimlib import *
 
-from mathlab_creature.core.logger import get_logger
-from mathlab_creature.core.naming import test_scene_name
+from mathlab_creature.core.transforms import (
+    vec3,
+)
 
-from mathlab_creature.creature.actions.blink_action import build_blink_animation
-from mathlab_creature.creature.actions.hop_action import build_hop_animation
-from mathlab_creature.creature.actions.look_action import build_look_animation
-from mathlab_creature.creature.actions.look_action import build_look_center_animation
-from mathlab_creature.creature.actions.point_action import build_point_animation
-from mathlab_creature.creature.actions.walk_action import build_walk_animation
-from mathlab_creature.creature.actions.wave_action import build_wave_animation
-from mathlab_creature.creature.rigs.body_rig import build_body_rig
+from mathlab_creature.core.audio.audio_server import (
+    boot_audio_server,
+    shutdown_audio_server,
+)
 
-logger = get_logger(__name__)
+from mathlab_creature.creature.rigs.body_rig import (
+    build_body_rig,
+)
+
+from mathlab_creature.creature.controllers.movement_controller import (
+    build_movement_controller,
+)
+
+from mathlab_creature.creature.controllers.rotation_controller import (
+    build_rotation_controller,
+)
+
+from mathlab_creature.creature.controllers.visibility_controller import (
+    build_visibility_controller,
+)
+
+from mathlab_creature.creature.controllers.camera_controller import (
+    build_camera_controller,
+)
+
+from mathlab_creature.creature.actions.blink_action import (
+    build_blink_animation,
+)
+
+from mathlab_creature.creature.actions.wave_action import (
+    build_wave_animation,
+)
+
+from mathlab_creature.creature.actions.point_action import (
+    build_point_animation,
+)
+
+from mathlab_creature.creature.actions.look_action import (
+    build_look_animation,
+)
+
+from mathlab_creature.creature.actions.hop_action import (
+    build_hop_animation,
+)
 
 
-class TestActionsScene(Scene):
+# =========================================================
+# SCENE
+# =========================================================
+
+class TestActionsScene(MovingCameraScene):
     """
-    Render one creature rig and run early action tests in sequence.
+    Production integration scene.
+
+    Tests:
+    - movement
+    - turning
+    - visibility
+    - idle
+    - camera
+    - procedural locomotion
+    - procedural audio
     """
 
-    CONFIG = {
-        "camera_config": {
-            "background_color": DEFAULT_SCENE_BACKGROUND_COLOR,
-        }
-    }
+    def construct(self):
 
-    def construct(self) -> None:
-        if LOG_SCENE_EVENTS:
-            logger.info("Starting TestActionsScene")
+        # -------------------------------------------------
+        # AUDIO BOOT
+        # -------------------------------------------------
 
-        # ----------------------------------------------------
-        # Build rig
-        # ----------------------------------------------------
-        rig = build_body_rig()
-        creature_group = rig["group"]
-        eyes_group = rig["face"]["eyes"]
+        boot_audio_server()
 
-        title = Text("Creature Action Test")
-        title.scale(0.5)
-        title.next_to(creature_group, DOWN, buff=0.7)
+        # -------------------------------------------------
+        # GLOBAL AUDIO TOGGLE
+        # -------------------------------------------------
 
-        scene_group = VGroup(creature_group, title)
-        scene_group.name = test_scene_name("actions")
+        WITH_SOUND = True
 
-        self.play(FadeIn(creature_group))
-        self.play(FadeIn(title))
-        self.wait(DEFAULT_WAIT_TIME)
+        # -------------------------------------------------
+        # CREATURE
+        # -------------------------------------------------
 
-        # Small local waits used between action checks.
-        blink_pause = 0.4
-        look_pause = 0.25
-        action_pause = 0.5
+        creature = build_body_rig()
 
-        # ----------------------------------------------------
-        # Blink
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running blink test")
+        creature.move_to(
+            vec3(
+                0.0,
+                -1.0,
+                0.0,
+            )
+        )
 
-        self.play(build_blink_animation(eyes_group))
-        self.wait(blink_pause)
+        self.add(creature)
 
-        # ----------------------------------------------------
-        # Look
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running look test")
+        # -------------------------------------------------
+        # EYES
+        # -------------------------------------------------
 
-        self.play(build_look_animation(eyes_group, "left"))
-        self.wait(look_pause)
+        eyes = creature["face"]["eyes"]
 
-        self.play(build_look_animation(eyes_group, "right"))
-        self.wait(look_pause)
+        # -------------------------------------------------
+        # CONTROLLERS
+        # -------------------------------------------------
 
-        self.play(build_look_animation(eyes_group, "up"))
-        self.wait(look_pause)
+        movement_controller = (
+            build_movement_controller(
+                creature
+            )
+        )
 
-        self.play(build_look_center_animation(eyes_group))
-        self.wait(blink_pause)
+        rotation_controller = (
+            build_rotation_controller(
+                creature
+            )
+        )
 
-        # ----------------------------------------------------
-        # Wave
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running wave test")
+        visibility_controller = (
+            build_visibility_controller(
+                creature
+            )
+        )
 
-        self.play(build_wave_animation(rig, cycles=2))
-        self.wait(action_pause)
+        camera_controller = (
+            build_camera_controller(
+                self,
+                creature,
+            )
+        )
 
-        # ----------------------------------------------------
-        # Point
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running point test")
+        # -------------------------------------------------
+        # DEBUG
+        # -------------------------------------------------
 
-        self.play(build_point_animation(rig, hold=True, return_to_neutral=True))
-        self.wait(action_pause)
+        creature.enable_debug()
 
-        # ----------------------------------------------------
-        # Hop
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running hop test")
+        # -------------------------------------------------
+        # UPDATE LOOP
+        # -------------------------------------------------
 
-        self.play(build_hop_animation(rig, hop_height=0.45))
-        self.wait(action_pause)
+        delta_time = 1 / 60
 
-        # ----------------------------------------------------
-        # Walk
-        # ----------------------------------------------------
-        if LOG_SCENE_EVENTS:
-            logger.info("Running walk test")
+        def master_update(_, dt):
 
-        self.play(build_walk_animation(rig, cycles=2))
-        self.wait(DEFAULT_WAIT_TIME)
+            movement_controller.update(dt)
 
-        if DEFAULT_SHOW_DEBUG_LABELS:
-            logger.debug(
-                "TestActionsScene debug | scene_group=%s creature_group=%s",
-                getattr(scene_group, "name", "unnamed_scene_group"),
-                getattr(creature_group, "name", "unnamed_creature_group"),
+            rotation_controller.update(dt)
+
+            visibility_controller.update(dt)
+
+            camera_controller.update(dt)
+
+        creature.add_updater(
+            master_update
+        )
+
+        # -------------------------------------------------
+        # TITLE
+        # -------------------------------------------------
+
+        title = Text(
+            "ACTION + AUDIO INTEGRATION TEST",
+            font_size=34,
+        )
+
+        title.to_edge(UP)
+
+        self.add(title)
+
+        # =================================================
+        # TEST 0
+        # AUDIO CHECK
+        # =================================================
+
+        self.play(
+            build_wave_animation(
+                creature,
+                cycles=1,
+                with_sound=WITH_SOUND,
+            )
+        )
+
+        self.wait(0.5)
+
+        self.play(
+            build_blink_animation(
+                eyes,
+                with_sound=WITH_SOUND,
+            )
+        )
+
+        self.wait(0.5)
+
+        self.play(
+            build_hop_animation(
+                creature,
+                with_sound=WITH_SOUND,
+            )
+        )
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 1
+        # WALK FORWARD
+        # =================================================
+
+        movement_controller.walk_to(
+            vec3(
+                4.0,
+                -1.0,
+                0.0,
+            ),
+            speed=1.0,
+            with_sound=WITH_SOUND,
+        )
+
+        self.wait(4)
+
+        # =================================================
+        # TEST 2
+        # TURN LEFT
+        # =================================================
+
+        rotation_controller.rotate_left(
+            with_sound=WITH_SOUND,
+        )
+
+        self.wait(2)
+
+        rotation_controller.stop_rotation()
+
+        # =================================================
+        # TEST 3
+        # WALK BACK
+        # =================================================
+
+        movement_controller.walk_to(
+            vec3(
+                -3.0,
+                -1.0,
+                0.0,
+            ),
+            speed=1.4,
+            with_sound=WITH_SOUND,
+        )
+
+        self.wait(4)
+
+        # =================================================
+        # TEST 4
+        # LOOK + POINT
+        # =================================================
+
+        self.play(
+            build_look_animation(
+                eyes,
+                "right",
+                with_sound=WITH_SOUND,
+            )
+        )
+
+        self.wait(0.3)
+
+        self.play(
+            build_point_animation(
+                creature,
+                hold=True,
+                with_sound=WITH_SOUND,
+            )
+        )
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 5
+        # VISIBILITY
+        # =================================================
+
+        visibility_controller.hide(
+            animated=True
+        )
+
+        self.wait(2)
+
+        visibility_controller.show(
+            animated=True
+        )
+
+        self.wait(2)
+
+        # =================================================
+        # TEST 6
+        # TELEPORT
+        # =================================================
+
+        movement_controller.teleport(
+            vec3(
+                0.0,
+                -1.0,
+                0.0,
+            )
+        )
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 7
+        # ORBIT CAMERA
+        # =================================================
+
+        camera_controller.orbit_creature()
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 8
+        # CINEMATIC MODE
+        # =================================================
+
+        camera_controller.cinematic_mode()
+
+        movement_controller.walk_to(
+            vec3(
+                5.0,
+                1.0,
+                0.0,
+            ),
+            speed=1.2,
+            with_sound=WITH_SOUND,
+        )
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 9
+        # IDLE STATE
+        # =================================================
+
+        movement_controller.stop()
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 10
+        # AUDIO DISABLED MODE
+        # =================================================
+
+        SILENT_MODE = False
+
+        if SILENT_MODE:
+
+            self.play(
+                build_wave_animation(
+                    creature,
+                    cycles=1,
+                    with_sound=False,
+                )
             )
 
-        if LOG_SCENE_EVENTS:
-            logger.info("Finished TestActionsScene")
+            self.play(
+                build_hop_animation(
+                    creature,
+                    with_sound=False,
+                )
+            )
+
+            self.play(
+                build_blink_animation(
+                    eyes,
+                    with_sound=False,
+                )
+            )
+
+            self.wait(1)
+
+        # -------------------------------------------------
+        # CLEANUP
+        # -------------------------------------------------
+
+        creature.remove_updater(
+            master_update
+        )
+
+        # -------------------------------------------------
+        # AUDIO SHUTDOWN
+        # -------------------------------------------------
+
+        shutdown_audio_server()
+
+        self.wait(1)

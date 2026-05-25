@@ -1,3 +1,4 @@
 manimgl
 numpy
 setuptools<81
+pyo

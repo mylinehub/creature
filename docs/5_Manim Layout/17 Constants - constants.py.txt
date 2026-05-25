@@ -255,4 +255,4 @@ corners rounded using angles + vectors
 
 If you’re ready, next we go to:
 simple_functions.py
-That’s where math functions like clip, interpolation, etc. start → directly used in rounding corners.
+That’s where math functions like clip, interpolation, etc. start→ directly used in rounding corners.

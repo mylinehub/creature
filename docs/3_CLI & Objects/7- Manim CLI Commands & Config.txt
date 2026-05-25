@@ -118,7 +118,7 @@ FINAL CONFIG
 Inside update functions:
 camera_config = config.camera
 camera_config.fps = 60
-👉 No new object created 👉 Same object updated
+👉 No new object created👉 Same object updated
 
 Visual
 config

@@ -1,376 +1,551 @@
 """
-Leg construction for mathlab-mylinehub-creature.
+mathlab_creature/creature/parts/legs.py
 
-This file builds the creature's legs as simple line segments
-attached to hip anchors.
+Production-grade articulated leg system
+for MathLab creature rigging.
 
-Version 1 goals:
-- clean, readable leg structure
-- correct attachment to left/right hip anchors
-- symmetric left/right legs
-- easy to animate later (walk, hop, step)
+Core Responsibilities
+---------------------
+- upper leg geometry
+- lower leg geometry
+- joint hierarchy
+- pivot-safe transforms
+- realistic proportions
+- center anchors
+- reusable limb architecture
 
-This file only builds leg geometry.
-Feet will be added separately.
+Design Goals
+------------
+- production-ready
+- hierarchy-safe
+- animation-safe
+- future IK-ready
+- future 3D-ready
+- procedural-animation-ready
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
-from manimlib import Line, VGroup
 
-from mathlab_creature.config.colors import CREATURE_LEG_COLOR
-from mathlab_creature.config.defaults import DEBUG_MODE
-from mathlab_creature.config.defaults import LEFT_LEG_NAME
-from mathlab_creature.config.defaults import LOG_CREATURE_BUILD
-from mathlab_creature.config.defaults import RIGHT_LEG_NAME
-from mathlab_creature.config.sizes import LEG_LENGTH
-from mathlab_creature.config.sizes import LEG_STROKE_WIDTH
+from manimlib import (
+    VGroup,
+    RoundedRectangle,
+    Circle,
+)
 
-from mathlab_creature.core.anchors import get_left_hip_anchor
-from mathlab_creature.core.anchors import get_right_hip_anchor
-from mathlab_creature.core.geometry import point
-from mathlab_creature.core.logger import get_logger
-from mathlab_creature.core.naming import creature_pair_part_names
-from mathlab_creature.core.naming import creature_part_name
+from manimlib.constants import (
+    WHITE,
+    BLUE_E,
+    GREY_B,
+    ORIGIN,
+)
 
-logger = get_logger(__name__)
-
-
-# ============================================================
-# Internal helpers
-# ============================================================
-
-_ALLOWED_DIRECTIONS = {
-    "down",
-    "up",
-    "left",
-    "right",
-    "down_left",
-    "down_right",
-    "up_left",
-    "up_right",
-}
+from mathlab_creature.core.transforms import (
+    TransformNode,
+    create_transform_node,
+    vec3,
+)
 
 
-def _validate_numeric(name: str, value: float | int) -> float:
+# =========================================================
+# LEG CONFIG
+# =========================================================
+
+@dataclass
+class LegConfig:
     """
-    Ensure a numeric value and return it as float.
+    Tunable leg proportions.
     """
-    if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
-    return float(value)
+
+    upper_leg_length: float = 1.1
+    lower_leg_length: float = 1.0
+
+    upper_leg_width: float = 0.28
+    lower_leg_width: float = 0.24
+
+    joint_radius: float = 0.09
+
+    leg_color = BLUE_E
+    joint_color = GREY_B
+
+    corner_radius: float = 0.12
+
+    hip_offset_x: float = 0.32
+    foot_spacing: float = 0.25
 
 
-def _validate_positive(name: str, value: float | int) -> float:
+# =========================================================
+# LEG SEGMENT
+# =========================================================
+
+class LegSegment(VGroup):
     """
-    Ensure a positive numeric value.
+    Generic articulated limb segment.
+
+    Supports:
+    - pivot transforms
+    - hierarchy-safe movement
+    - center anchors
     """
-    value = _validate_numeric(name, value)
-    if value <= 0:
-        raise ValueError(f"{name} must be > 0, got {value}")
-    return value
 
+    def __init__(
+        self,
+        length: float,
+        width: float,
+        color=WHITE,
+        corner_radius: float = 0.1,
+        name: str = "segment",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
 
-def _coerce_point3(value, name: str = "value") -> np.ndarray:
-    """
-    Normalize a point-like input into a clean 3D numpy point.
-    """
-    if isinstance(value, np.ndarray):
-        if value.shape != (3,):
-            raise ValueError(f"{name} must have shape (3,), got {value.shape}")
-        return value.astype(float)
+        self.segment_name = name
 
-    if isinstance(value, (tuple, list)):
-        if len(value) != 3:
-            raise ValueError(f"{name} must contain exactly 3 values, got {len(value)}")
-        return point(value[0], value[1], value[2])
+        # -------------------------------------------------
+        # GEOMETRY
+        # -------------------------------------------------
 
-    raise TypeError(f"{name} must be a numpy.ndarray or 3-item tuple/list")
-
-
-def _normalize_direction(direction: str) -> str:
-    """
-    Normalize and validate direction text.
-    """
-    if not isinstance(direction, str):
-        raise TypeError(f"direction must be a string, got {type(direction).__name__}")
-
-    normalized = direction.strip().lower().replace("-", "_").replace(" ", "_")
-
-    if normalized not in _ALLOWED_DIRECTIONS:
-        raise ValueError(
-            f"Unsupported direction {direction!r}. "
-            f"Allowed values: {sorted(_ALLOWED_DIRECTIONS)}"
+        self.body = RoundedRectangle(
+            width=width,
+            height=length,
+            corner_radius=corner_radius,
+            stroke_width=0,
+            fill_opacity=1.0,
+            fill_color=color,
         )
 
-    return normalized
+        self.add(self.body)
 
+        # -------------------------------------------------
+        # TRANSFORM NODE
+        # -------------------------------------------------
 
-def _direction_vector(direction: str) -> np.ndarray:
-    """
-    Return a normalized cardinal/diagonal direction vector in XY plane.
-    """
-    direction = _normalize_direction(direction)
-
-    mapping = {
-        "down": point(0.0, -1.0, 0.0),
-        "up": point(0.0, 1.0, 0.0),
-        "left": point(-1.0, 0.0, 0.0),
-        "right": point(1.0, 0.0, 0.0),
-        "down_left": point(-1.0, -1.0, 0.0),
-        "down_right": point(1.0, -1.0, 0.0),
-        "up_left": point(-1.0, 1.0, 0.0),
-        "up_right": point(1.0, 1.0, 0.0),
-    }
-
-    vec = mapping[direction]
-    mag = np.linalg.norm(vec)
-
-    if mag == 0:
-        return point(0.0, -1.0, 0.0)
-
-    return vec / mag
-
-
-def _leg_end_point(
-    start_point: np.ndarray,
-    length: float,
-    direction: str,
-) -> np.ndarray:
-    """
-    Compute the end point of a leg from a start point, length, and direction.
-    """
-    start_point = _coerce_point3(start_point, "start_point")
-    length = _validate_positive("length", length)
-
-    unit_vec = _direction_vector(direction)
-
-    return point(
-        start_point[0] + unit_vec[0] * length,
-        start_point[1] + unit_vec[1] * length,
-        start_point[2] + unit_vec[2] * length,
-    )
-
-
-# ============================================================
-# Internal builder
-# ============================================================
-
-def _build_single_leg(
-    start_point,
-    *,
-    leg_name: str = "leg",
-    length: float = LEG_LENGTH,
-    stroke_width: float = LEG_STROKE_WIDTH,
-    stroke_color: str = CREATURE_LEG_COLOR,
-    direction: str = "down",
-) -> Line:
-    """
-    Build a single leg from a hip anchor.
-
-    Args:
-        start_point:
-            Hip anchor point.
-
-        leg_name:
-            Stable object name for the leg.
-
-        length:
-            Leg length.
-
-        stroke_width:
-            Leg stroke width.
-
-        stroke_color:
-            Leg stroke color.
-
-        direction:
-            Direction keyword such as:
-            - down
-            - up
-            - left
-            - right
-            - down_left
-            - down_right
-            - up_left
-            - up_right
-
-    Returns:
-        Line representing one leg.
-    """
-    start_point = _coerce_point3(start_point, "start_point")
-    length = _validate_positive("length", length)
-    stroke_width = _validate_positive("stroke_width", stroke_width)
-    direction = _normalize_direction(direction)
-
-    end_point = _leg_end_point(
-        start_point=start_point,
-        length=length,
-        direction=direction,
-    )
-
-    leg = Line(start_point, end_point)
-    leg.set_stroke(stroke_color, width=stroke_width)
-    leg.name = leg_name
-
-    # Lightweight metadata for later rigging / animation
-    leg.leg_start = start_point
-    leg.leg_end = end_point
-    leg.leg_length = length
-    leg.leg_direction = direction
-    leg.leg_stroke_width = stroke_width
-
-    if DEBUG_MODE:
-        logger.debug(
-            "Built leg | name=%s start=%s end=%s direction=%s",
-            leg_name,
-            start_point,
-            end_point,
-            direction,
+        self.transform_node = create_transform_node(
+            name=name,
+            mobject=self,
         )
 
-    return leg
+        # -------------------------------------------------
+        # PIVOT SYSTEM
+        # -------------------------------------------------
+
+        self.top_anchor = vec3(0.0, length / 2.0, 0.0)
+        self.bottom_anchor = vec3(0.0, -length / 2.0, 0.0)
+
+        self.center_anchor = vec3()
+
+        self.transform_node.set_center_point(
+            self.center_anchor
+        )
+
+        # Rotate around top by default
+        self.transform_node.set_root_pivot(
+            self.top_anchor
+        )
+
+    # =====================================================
+    # ANCHORS
+    # =====================================================
+
+    def get_top_anchor(self):
+        return np.array(self.top_anchor)
+
+    def get_bottom_anchor(self):
+        return np.array(self.bottom_anchor)
+
+    def get_center_anchor(self):
+        return np.array(self.center_anchor)
+
+    # =====================================================
+    # TRANSFORM
+    # =====================================================
+
+    def get_transform_node(self):
+        return self.transform_node
 
 
-# ============================================================
-# Public builders
-# ============================================================
+# =========================================================
+# KNEE JOINT
+# =========================================================
+
+class KneeJoint(VGroup):
+    """
+    Visual knee connector.
+
+    Used for:
+    - articulation
+    - debugging
+    - future deformation support
+    """
+
+    def __init__(
+        self,
+        radius: float = 0.08,
+        color=GREY_B,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.joint = Circle(
+            radius=radius,
+            stroke_width=0,
+            fill_opacity=1.0,
+            fill_color=color,
+        )
+
+        self.add(self.joint)
+
+        self.transform_node = create_transform_node(
+            name="knee_joint",
+            mobject=self,
+        )
+
+        self.transform_node.set_center_point(
+            vec3()
+        )
+
+        self.transform_node.set_root_pivot(
+            vec3()
+        )
+
+    def get_transform_node(self):
+        return self.transform_node
+
+
+# =========================================================
+# ARTICULATED LEG
+# =========================================================
+
+class ArticulatedLeg(VGroup):
+    """
+    Full articulated creature leg.
+
+    Structure:
+        hip
+         ↓
+    upper_leg
+         ↓
+      knee
+         ↓
+    lower_leg
+         ↓
+      ankle
+    """
+
+    def __init__(
+        self,
+        config: LegConfig | None = None,
+        side: str = "left",
+        name: str = "leg",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.config = config or LegConfig()
+
+        self.side = side
+        self.leg_name = name
+
+        # -------------------------------------------------
+        # ROOT TRANSFORM
+        # -------------------------------------------------
+
+        self.transform_node = create_transform_node(
+            name=name,
+            mobject=self,
+        )
+
+        # -------------------------------------------------
+        # BUILD
+        # -------------------------------------------------
+
+        self._build_upper_leg()
+        self._build_knee()
+        self._build_lower_leg()
+
+        self._assemble_hierarchy()
+
+        self._position_parts()
+
+        self._register_anchors()
+
+    # =====================================================
+    # BUILD PARTS
+    # =====================================================
+
+    def _build_upper_leg(self):
+        self.upper_leg = LegSegment(
+            length=self.config.upper_leg_length,
+            width=self.config.upper_leg_width,
+            color=self.config.leg_color,
+            corner_radius=self.config.corner_radius,
+            name=f"{self.side}_upper_leg",
+        )
+
+    def _build_knee(self):
+        self.knee_joint = KneeJoint(
+            radius=self.config.joint_radius,
+            color=self.config.joint_color,
+        )
+
+    def _build_lower_leg(self):
+        self.lower_leg = LegSegment(
+            length=self.config.lower_leg_length,
+            width=self.config.lower_leg_width,
+            color=self.config.leg_color,
+            corner_radius=self.config.corner_radius,
+            name=f"{self.side}_lower_leg",
+        )
+
+    # =====================================================
+    # HIERARCHY
+    # =====================================================
+
+    def _assemble_hierarchy(self):
+        """
+        Build transform hierarchy.
+        """
+
+        self.transform_node.add_child(
+            self.upper_leg.get_transform_node()
+        )
+
+        self.upper_leg.get_transform_node().add_child(
+            self.knee_joint.get_transform_node()
+        )
+
+        self.knee_joint.get_transform_node().add_child(
+            self.lower_leg.get_transform_node()
+        )
+
+    # =====================================================
+    # POSITIONING
+    # =====================================================
+
+    def _position_parts(self):
+        """
+        Assemble visual geometry.
+        """
+
+        upper_half = (
+            self.config.upper_leg_length / 2.0
+        )
+
+        lower_half = (
+            self.config.lower_leg_length / 2.0
+        )
+
+        # ---------------------------------------------
+        # KNEE POSITION
+        # ---------------------------------------------
+
+        knee_y = -upper_half
+
+        self.knee_joint.move_to(
+            vec3(0.0, knee_y, 0.0)
+        )
+
+        # ---------------------------------------------
+        # LOWER LEG POSITION
+        # ---------------------------------------------
+
+        lower_y = (
+            knee_y - lower_half
+        )
+
+        self.lower_leg.move_to(
+            vec3(0.0, lower_y, 0.0)
+        )
+
+        # ---------------------------------------------
+        # ROOT OFFSET
+        # ---------------------------------------------
+
+        side_multiplier = (
+            -1.0 if self.side == "left"
+            else 1.0
+        )
+
+        root_offset = vec3(
+            side_multiplier
+            * self.config.hip_offset_x,
+            0.0,
+            0.0,
+        )
+
+        self.move_to(root_offset)
+
+        # ---------------------------------------------
+        # ADD TO GROUP
+        # ---------------------------------------------
+
+        self.add(
+            self.upper_leg,
+            self.knee_joint,
+            self.lower_leg,
+        )
+
+    # =====================================================
+    # ANCHORS
+    # =====================================================
+
+    def _register_anchors(self):
+        """
+        Register important anchor points.
+        """
+
+        self.hip_anchor = vec3(
+            0.0,
+            self.config.upper_leg_length / 2.0,
+            0.0,
+        )
+
+        self.knee_anchor = vec3(
+            0.0,
+            -self.config.upper_leg_length / 2.0,
+            0.0,
+        )
+
+        self.ankle_anchor = vec3(
+            0.0,
+            -(
+                self.config.upper_leg_length
+                + self.config.lower_leg_length
+            ),
+            0.0,
+        )
+
+        self.center_anchor = vec3(
+            0.0,
+            -(
+                self.config.upper_leg_length
+                + self.config.lower_leg_length
+            ) / 2.0,
+            0.0,
+        )
+
+        self.transform_node.set_center_point(
+            self.center_anchor
+        )
+
+        self.transform_node.set_root_pivot(
+            self.hip_anchor
+        )
+
+    # =====================================================
+    # ACCESSORS
+    # =====================================================
+
+    def get_transform_node(self):
+        return self.transform_node
+
+    def get_upper_leg(self):
+        return self.upper_leg
+
+    def get_lower_leg(self):
+        return self.lower_leg
+
+    def get_knee_joint(self):
+        return self.knee_joint
+
+    # =====================================================
+    # ANCHORS
+    # =====================================================
+
+    def get_hip_anchor(self):
+        return np.array(self.hip_anchor)
+
+    def get_knee_anchor(self):
+        return np.array(self.knee_anchor)
+
+    def get_ankle_anchor(self):
+        return np.array(self.ankle_anchor)
+
+    def get_center_anchor(self):
+        return np.array(self.center_anchor)
+
+    # =====================================================
+    # POSE CONTROL
+    # =====================================================
+
+    def set_upper_leg_rotation(
+        self,
+        angle: float,
+    ):
+        self.upper_leg.rotate(
+            angle,
+            about_point=self.upper_leg.get_top_anchor(),
+        )
+
+    def set_lower_leg_rotation(
+        self,
+        angle: float,
+    ):
+        self.lower_leg.rotate(
+            angle,
+            about_point=self.lower_leg.get_top_anchor(),
+        )
+
+    # =====================================================
+    # RESET
+    # =====================================================
+
+    def reset_pose(self):
+        """
+        Reset procedural transforms.
+        """
+
+        self.upper_leg.restore()
+        self.lower_leg.restore()
+
+    # =====================================================
+    # DEBUG
+    # =====================================================
+
+    def print_hierarchy(self):
+        self.transform_node.print_tree()
+
+
+# =========================================================
+# FACTORY HELPERS
+# =========================================================
 
 def build_left_leg(
-    body_center=None,
-    *,
-    direction: str = "down",
-    length: float = LEG_LENGTH,
-    stroke_width: float = LEG_STROKE_WIDTH,
-    stroke_color: str = CREATURE_LEG_COLOR,
-) -> Line:
-    """
-    Build left leg attached to left hip anchor.
-    """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building left leg")
-
-    left_hip = get_left_hip_anchor(body_center)
-
-    left_leg = _build_single_leg(
-        left_hip,
-        leg_name=creature_part_name(LEFT_LEG_NAME),
-        length=length,
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
-        direction=direction,
+    config: LegConfig | None = None,
+) -> ArticulatedLeg:
+    return ArticulatedLeg(
+        config=config,
+        side="left",
+        name="left_leg",
     )
-
-    if LOG_CREATURE_BUILD:
-        logger.info("Left leg created successfully")
-
-    return left_leg
 
 
 def build_right_leg(
-    body_center=None,
-    *,
-    direction: str = "down",
-    length: float = LEG_LENGTH,
-    stroke_width: float = LEG_STROKE_WIDTH,
-    stroke_color: str = CREATURE_LEG_COLOR,
-) -> Line:
-    """
-    Build right leg attached to right hip anchor.
-    """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building right leg")
-
-    right_hip = get_right_hip_anchor(body_center)
-
-    right_leg = _build_single_leg(
-        right_hip,
-        leg_name=creature_part_name(RIGHT_LEG_NAME),
-        length=length,
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
-        direction=direction,
+    config: LegConfig | None = None,
+) -> ArticulatedLeg:
+    return ArticulatedLeg(
+        config=config,
+        side="right",
+        name="right_leg",
     )
 
-    if LOG_CREATURE_BUILD:
-        logger.info("Right leg created successfully")
 
-    return right_leg
-
-
-def build_legs(
-    body_center=None,
-    *,
-    left_direction: str = "down",
-    right_direction: str = "down",
-    length: float = LEG_LENGTH,
-    stroke_width: float = LEG_STROKE_WIDTH,
-    stroke_color: str = CREATURE_LEG_COLOR,
-    assign_group_name: bool = True,
+def build_leg_pair(
+    config: LegConfig | None = None,
 ) -> VGroup:
     """
-    Build both legs together.
-
-    Parameters:
-        body_center:
-            Optional body center used by hip anchors.
-
-        left_direction:
-            Direction for left leg.
-
-        right_direction:
-            Direction for right leg.
-
-        length:
-            Shared leg length.
-
-        stroke_width:
-            Shared leg stroke width.
-
-        stroke_color:
-            Shared leg stroke color.
-
-        assign_group_name:
-            If True, assign a stable name to the group.
-
-    Returns:
-        VGroup(left_leg, right_leg)
+    Create complete creature leg pair.
     """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building both legs")
 
-    left_leg = build_left_leg(
-        body_center=body_center,
-        direction=left_direction,
-        length=length,
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
+    config = config or LegConfig()
+
+    left_leg = build_left_leg(config)
+    right_leg = build_right_leg(config)
+
+    return VGroup(
+        left_leg,
+        right_leg,
     )
-
-    right_leg = build_right_leg(
-        body_center=body_center,
-        direction=right_direction,
-        length=length,
-        stroke_width=stroke_width,
-        stroke_color=stroke_color,
-    )
-
-    legs = VGroup(left_leg, right_leg)
-
-    if assign_group_name:
-        left_name, right_name = creature_pair_part_names("leg")
-        legs.name = "creature_legs"
-        legs.left_leg_name = left_name
-        legs.right_leg_name = right_name
-
-    # Lightweight metadata for later rigging
-    legs.left_leg = left_leg
-    legs.right_leg = right_leg
-    legs.body_center = body_center
-    legs.leg_length = length
-
-    if LOG_CREATURE_BUILD:
-        logger.info("Legs created successfully")
-
-    return legs

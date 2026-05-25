@@ -130,7 +130,7 @@ hands
 legs
 later pointer/stick
 later teaching / walking / reacting / explaining maths
-It is not just one animation. It is a character framework.
+It is not just one animation.It is a character framework.
 So from day 1, we design it like a proper reusable system.
 
 2. Main project goals
@@ -280,7 +280,7 @@ mathlab-mylinehub-creature/
     └── animation_notes.md
 
 5. Why this structure is good
-This is not random splitting. Each folder has a clear purpose.
+This is not random splitting.Each folder has a clear purpose.
 config/
 Only constants and design values.
 Examples:
@@ -328,10 +328,10 @@ Scene files should never become storage for body-construction logic.
 That logic belongs in creature/.
 
 docs/
-This is useful because you are learning. We can keep learning notes and architecture notes there.
+This is useful because you are learning.We can keep learning notes and architecture notes there.
 
 6. Development order
-We should not create all files immediately. We create them in the right order.
+We should not create all files immediately.We create them in the right order.
 Phase 1 — foundation
 Create base project and config/core helpers.
 Phase 2 — creature body
@@ -489,16 +489,16 @@ expose grouped character object
 This is the first true “mascot class”.
 
 scenes/tests/test_body_scene.py
-Render only body. Check if M shape feels right.
+Render only body.Check if M shape feels right.
 
 scenes/tests/test_face_scene.py
-Render body + face. Check eyes, nose, mouth positioning.
+Render body + face.Check eyes, nose, mouth positioning.
 
 scenes/tests/test_hat_scene.py
-Render body + face + hat. Check top alignment and silhouette.
+Render body + face + hat.Check top alignment and silhouette.
 
 9. Keep file sizes small
-You said file sizes should stay small. Correct.
+You said file sizes should stay small.Correct.
 My recommendation:
 ideal file length
 40 to 120 lines for most files

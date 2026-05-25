@@ -1,18 +1,31 @@
+# File: mathlab_creature/creature/actions/blink_action.py
+
 """
-Blink action helpers for mathlab-mylinehub-creature.
+Blink action helpers for mathlab-mylinehub-creature
+with cinematic procedural audio integration.
 
-This file provides simple blink-related utilities for the creature.
+This file provides blink-related utilities for the creature.
 
-Version 1 goals:
-- support a lightweight blink effect
-- keep implementation simple and easy to understand
-- avoid overcomplicated eye deformation at this stage
-- work with the current eye structure:
-    VGroup(left_eye_group, right_eye_group)
+Features:
+- lightweight blink effect
+- procedural blink sound
+- soft mascot eye timing
+- educational character rhythm
+- safe audio integration
+- optional sound toggle
 
-Important:
-This file does not permanently rebuild the eye design.
-It provides a simple animation helper that can be used in scenes later.
+Design Goals:
+- simple
+- animation-safe
+- production-ready
+- subtle expressive motion
+- alive but not annoying
+
+Audio Goals:
+- tiny cute blink sound
+- subtle airy transient
+- barely noticeable
+- expressive but soft
 """
 
 from __future__ import annotations
@@ -22,97 +35,146 @@ from manimlib import ApplyMethod
 
 from mathlab_creature.config.defaults import DEBUG_MODE
 from mathlab_creature.config.defaults import LOG_ANIMATION_EVENTS
-from mathlab_creature.config.timings import BLINK_CLOSE_TIME
-from mathlab_creature.config.timings import BLINK_OPEN_TIME
-from mathlab_creature.core.logger import get_logger
+
+from mathlab_creature.config.timings import (
+    BLINK_CLOSE_TIME,
+    BLINK_OPEN_TIME,
+)
+
+from mathlab_creature.core.logger import (
+    get_logger,
+)
+
+from mathlab_creature.core.audio.helpers import (
+    maybe_play_sound,
+)
+
+from mathlab_creature.core.audio.procedural import (
+    play_blink_sound,
+)
 
 logger = get_logger(__name__)
 
 
 # ============================================================
-# Internal constants
+# INTERNAL CONSTANTS
 # ============================================================
 
 _LEFT_EYE_INDEX = 0
 _RIGHT_EYE_INDEX = 1
 _MIN_EYE_COUNT = 2
 
-# Vertical squash factor used for blink closing.
-# Lower means flatter eyes during the closed phase.
+# Lower means flatter eyes during blink close.
 DEFAULT_BLINK_SQUASH_FACTOR = 0.08
 
 
 # ============================================================
-# Internal helpers
+# INTERNAL HELPERS
 # ============================================================
 
-def _validate_numeric(name: str, value: float | int) -> float:
+def _validate_numeric(
+    name: str,
+    value: float | int,
+) -> float:
     """
-    Ensure a numeric value and return it as float.
+    Ensure numeric value.
     """
+
     if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
+        raise TypeError(
+            f"{name} must be numeric, "
+            f"got {type(value).__name__}"
+        )
+
     return float(value)
 
 
-def _validate_blink_factor(factor: float) -> float:
+def _validate_blink_factor(
+    factor: float,
+) -> float:
     """
-    Ensure blink squash factor is valid.
+    Validate blink squash factor.
+    """
 
-    Expected range:
-    - > 0
-    - typically <= 1
-    """
-    factor = _validate_numeric("factor", factor)
+    factor = _validate_numeric(
+        "factor",
+        factor,
+    )
+
     if factor <= 0:
-        raise ValueError(f"factor must be > 0, got {factor}")
+        raise ValueError(
+            f"factor must be > 0, got {factor}"
+        )
+
     return factor
 
 
-def _validate_eyes_group(eyes_group) -> None:
+def _validate_eyes_group(
+    eyes_group,
+) -> None:
     """
-    Validate the expected eyes-group structure.
+    Validate expected eyes structure.
+    """
 
-    Expected:
-        eyes_group[0] -> left eye group
-        eyes_group[1] -> right eye group
-    """
     if eyes_group is None:
-        raise ValueError("eyes_group must not be None")
+        raise ValueError(
+            "eyes_group must not be None"
+        )
 
     if len(eyes_group) < _MIN_EYE_COUNT:
         raise ValueError(
-            f"eyes_group must contain at least {_MIN_EYE_COUNT} eye groups, "
+            f"eyes_group must contain at least "
+            f"{_MIN_EYE_COUNT} eye groups, "
             f"got {len(eyes_group)}"
         )
 
 
-def _get_left_eye(eyes_group):
+def _get_left_eye(
+    eyes_group,
+):
     """
-    Return the left eye group from the eyes group.
+    Return left eye group.
     """
-    _validate_eyes_group(eyes_group)
-    return eyes_group[_LEFT_EYE_INDEX]
+
+    _validate_eyes_group(
+        eyes_group
+    )
+
+    return eyes_group[
+        _LEFT_EYE_INDEX
+    ]
 
 
-def _get_right_eye(eyes_group):
+def _get_right_eye(
+    eyes_group,
+):
     """
-    Return the right eye group from the eyes group.
+    Return right eye group.
     """
-    _validate_eyes_group(eyes_group)
-    return eyes_group[_RIGHT_EYE_INDEX]
+
+    _validate_eyes_group(
+        eyes_group
+    )
+
+    return eyes_group[
+        _RIGHT_EYE_INDEX
+    ]
 
 
-def _close_single_eye(eye_group, *, squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR):
+def _close_single_eye(
+    eye_group,
+    *,
+    squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR,
+):
     """
-    Return an animation that visually squashes one eye vertically.
+    Create close-eye animation.
+    """
 
-    eye_group structure:
-        eye_group[0] -> eye white
-        eye_group[1] -> pupil
-        eye_group[2] -> highlight
-    """
-    squash_factor = _validate_blink_factor(squash_factor)
+    squash_factor = (
+        _validate_blink_factor(
+            squash_factor
+        )
+    )
 
     return ApplyMethod(
         eye_group.stretch,
@@ -122,13 +184,20 @@ def _close_single_eye(eye_group, *, squash_factor: float = DEFAULT_BLINK_SQUASH_
     )
 
 
-def _open_single_eye(eye_group, *, squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR):
+def _open_single_eye(
+    eye_group,
+    *,
+    squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR,
+):
     """
-    Return an animation that restores one eye vertically.
+    Create reopen-eye animation.
+    """
 
-    This assumes the blink close step already squashed the eye group.
-    """
-    squash_factor = _validate_blink_factor(squash_factor)
+    squash_factor = (
+        _validate_blink_factor(
+            squash_factor
+        )
+    )
 
     return ApplyMethod(
         eye_group.stretch,
@@ -139,7 +208,24 @@ def _open_single_eye(eye_group, *, squash_factor: float = DEFAULT_BLINK_SQUASH_F
 
 
 # ============================================================
-# Public blink builders
+# AUDIO HELPERS
+# ============================================================
+
+def _play_blink_audio(
+    with_sound: bool = True,
+):
+    """
+    Trigger procedural blink sound safely.
+    """
+
+    maybe_play_sound(
+        with_sound,
+        play_blink_sound,
+    )
+
+
+# ============================================================
+# PUBLIC BLINK BUILDERS
 # ============================================================
 
 def build_blink_close_animation(
@@ -148,32 +234,57 @@ def build_blink_close_animation(
     squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR,
 ):
     """
-    Build the eye-closing half of a blink.
-
-    eyes_group structure:
-        eyes_group[0] -> left eye group
-        eyes_group[1] -> right eye group
+    Build eye-closing half of blink.
     """
-    _validate_eyes_group(eyes_group)
-    squash_factor = _validate_blink_factor(squash_factor)
+
+    _validate_eyes_group(
+        eyes_group
+    )
+
+    squash_factor = (
+        _validate_blink_factor(
+            squash_factor
+        )
+    )
 
     if LOG_ANIMATION_EVENTS:
-        logger.info("Building blink close animation")
+        logger.info(
+            "Building blink close animation"
+        )
 
-    left_eye = _get_left_eye(eyes_group)
-    right_eye = _get_right_eye(eyes_group)
+    left_eye = _get_left_eye(
+        eyes_group
+    )
+
+    right_eye = _get_right_eye(
+        eyes_group
+    )
 
     if DEBUG_MODE:
         logger.debug(
             "Blink close | left_eye=%s right_eye=%s squash_factor=%.3f",
-            getattr(left_eye, "name", "left_eye"),
-            getattr(right_eye, "name", "right_eye"),
+            getattr(
+                left_eye,
+                "name",
+                "left_eye",
+            ),
+            getattr(
+                right_eye,
+                "name",
+                "right_eye",
+            ),
             squash_factor,
         )
 
     return AnimationGroup(
-        _close_single_eye(left_eye, squash_factor=squash_factor),
-        _close_single_eye(right_eye, squash_factor=squash_factor),
+        _close_single_eye(
+            left_eye,
+            squash_factor=squash_factor,
+        ),
+        _close_single_eye(
+            right_eye,
+            squash_factor=squash_factor,
+        ),
         lag_ratio=0.0,
     )
 
@@ -184,28 +295,57 @@ def build_blink_open_animation(
     squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR,
 ):
     """
-    Build the eye-opening half of a blink.
+    Build eye-opening half of blink.
     """
-    _validate_eyes_group(eyes_group)
-    squash_factor = _validate_blink_factor(squash_factor)
+
+    _validate_eyes_group(
+        eyes_group
+    )
+
+    squash_factor = (
+        _validate_blink_factor(
+            squash_factor
+        )
+    )
 
     if LOG_ANIMATION_EVENTS:
-        logger.info("Building blink open animation")
+        logger.info(
+            "Building blink open animation"
+        )
 
-    left_eye = _get_left_eye(eyes_group)
-    right_eye = _get_right_eye(eyes_group)
+    left_eye = _get_left_eye(
+        eyes_group
+    )
+
+    right_eye = _get_right_eye(
+        eyes_group
+    )
 
     if DEBUG_MODE:
         logger.debug(
             "Blink open | left_eye=%s right_eye=%s squash_factor=%.3f",
-            getattr(left_eye, "name", "left_eye"),
-            getattr(right_eye, "name", "right_eye"),
+            getattr(
+                left_eye,
+                "name",
+                "left_eye",
+            ),
+            getattr(
+                right_eye,
+                "name",
+                "right_eye",
+            ),
             squash_factor,
         )
 
     return AnimationGroup(
-        _open_single_eye(left_eye, squash_factor=squash_factor),
-        _open_single_eye(right_eye, squash_factor=squash_factor),
+        _open_single_eye(
+            left_eye,
+            squash_factor=squash_factor,
+        ),
+        _open_single_eye(
+            right_eye,
+            squash_factor=squash_factor,
+        ),
         lag_ratio=0.0,
     )
 
@@ -214,17 +354,43 @@ def build_blink_animation(
     eyes_group,
     *,
     squash_factor: float = DEFAULT_BLINK_SQUASH_FACTOR,
+    with_sound: bool = True,
 ):
     """
-    Build a full blink animation:
-    - close both eyes
-    - reopen both eyes
+    Build full blink animation.
+
+    Features:
+    - close eyes
+    - reopen eyes
+    - optional procedural sound
     """
-    _validate_eyes_group(eyes_group)
-    squash_factor = _validate_blink_factor(squash_factor)
+
+    _validate_eyes_group(
+        eyes_group
+    )
+
+    squash_factor = (
+        _validate_blink_factor(
+            squash_factor
+        )
+    )
 
     if LOG_ANIMATION_EVENTS:
-        logger.info("Building full blink animation")
+        logger.info(
+            "Building full blink animation"
+        )
+
+    # --------------------------------------------------------
+    # AUDIO
+    # --------------------------------------------------------
+
+    _play_blink_audio(
+        with_sound=with_sound,
+    )
+
+    # --------------------------------------------------------
+    # ANIMATION
+    # --------------------------------------------------------
 
     return AnimationGroup(
         build_blink_close_animation(

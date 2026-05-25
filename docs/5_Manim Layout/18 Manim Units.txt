@@ -32,7 +32,7 @@ ASPECT_RATIO = width / height
 Step 3 — Choose Frame Height (Design Choice)
 FRAME_HEIGHT = 8.0
 This is important:
-👉 This is NOT derived 👉 This is chosen by Manim (or you can change it)
+👉 This is NOT derived👉 This is chosen by Manim (or you can change it)
 
 Step 4 — Compute Frame Width
 FRAME_WIDTH = FRAME_HEIGHT × ASPECT_RATIO

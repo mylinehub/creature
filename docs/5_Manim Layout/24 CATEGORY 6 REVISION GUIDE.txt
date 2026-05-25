@@ -324,7 +324,7 @@ arr = new_array
 creates new object.
 
 arr[:] = new_values
-keeps SAME object but changes contents.
+keeps SAME objectbut changes contents.
 
 WHY IMPORTANT?
 Graphics engines avoid memory allocations heavily.

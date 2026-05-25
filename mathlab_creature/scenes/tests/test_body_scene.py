@@ -1,84 +1,381 @@
 """
-Body test scene for mathlab-mylinehub-creature.
+mathlab_creature/scenes/tests/test_body_scene.py
 
-Purpose:
-- verify that the MYLINEHUB creature builds correctly
-- render the first assembled mascot on screen
-- confirm that body, eyes, nose, mouth, and hat align properly
-- provide a simple test scene before adding limbs and actions
+MASTER BODY RIG VALIDATION SCENE
 
-This is the first real creature scene.
+Purpose
+-------
+Final full-creature assembly verification.
+
+This scene validates:
+- body rig integrity
+- hierarchy correctness
+- transform stability
+- leg attachment
+- face attachment
+- procedural balance
+- visibility systems
+- camera integration
+- controller integration
+- scaling stability
+- root pivot correctness
+
+IMPORTANT
+---------
+This is NOT:
+- low-level IK testing
+- walk tuning
+- debug geometry validation
+
+Those belong in dedicated scenes.
+
+This scene verifies:
+THE FULL CREATURE ASSEMBLY.
 """
 
 from __future__ import annotations
 
-from manimlib import DOWN
-from manimlib import FadeIn
-from manimlib import Scene
-from manimlib import Text
-from manimlib import VGroup
+import numpy as np
 
-from mathlab_creature.config.defaults import DEFAULT_SCENE_BACKGROUND_COLOR
-from mathlab_creature.config.defaults import DEFAULT_WAIT_TIME
-from mathlab_creature.config.defaults import DEFAULT_SHOW_DEBUG_LABELS
-from mathlab_creature.config.defaults import LOG_SCENE_EVENTS
-from mathlab_creature.core.logger import get_logger
-from mathlab_creature.core.naming import test_scene_name
-from mathlab_creature.creature.myline_m_creature import build_myline_m_creature
+from manimlib import *
 
-logger = get_logger(__name__)
+from mathlab_creature.core.transforms import (
+    vec3,
+)
+
+from mathlab_creature.creature.rigs.body_rig import (
+    build_body_rig,
+)
+
+from mathlab_creature.creature.controllers.movement_controller import (
+    build_movement_controller,
+)
+
+from mathlab_creature.creature.controllers.rotation_controller import (
+    build_rotation_controller,
+)
+
+from mathlab_creature.creature.controllers.visibility_controller import (
+    build_visibility_controller,
+)
+
+from mathlab_creature.creature.controllers.camera_controller import (
+    build_camera_controller,
+)
 
 
-class TestBodyScene(Scene):
+# =========================================================
+# SCENE
+# =========================================================
+
+class TestBodyScene(MovingCameraScene):
     """
-    Render the first full version of the creature.
-
-    This scene is intentionally simple:
-    - build the mascot
-    - show it clearly
-    - leave enough visual quiet space to inspect alignment
+    Full creature assembly verification scene.
     """
 
-    CONFIG = {
-        "camera_config": {
-            "background_color": DEFAULT_SCENE_BACKGROUND_COLOR,
-        }
-    }
+    def construct(self):
 
-    def construct(self) -> None:
-        if LOG_SCENE_EVENTS:
-            logger.info("Starting TestBodyScene")
+        # -------------------------------------------------
+        # GRID
+        # -------------------------------------------------
 
-        creature = build_myline_m_creature()
-        creature.name = "test_body_scene_creature"
+        plane = NumberPlane(
+            x_range=(-12, 12, 1),
+            y_range=(-7, 7, 1),
+            background_line_style={
+                "stroke_opacity": 0.15,
+            },
+        )
 
-        title = Text("MYLINEHUB M Creature")
-        title.scale(0.55)
-        title.next_to(creature, DOWN, buff=0.6)
+        self.add(plane)
 
-        content = VGroup(creature, title)
-        content.name = test_scene_name("body")
+        # -------------------------------------------------
+        # TITLE
+        # -------------------------------------------------
 
-        if LOG_SCENE_EVENTS:
-            logger.info(
-                "Creature built for TestBodyScene | has_body=%s has_eyes=%s has_nose=%s has_mouth=%s has_hat=%s",
-                creature.body is not None,
-                creature.eyes is not None,
-                creature.nose is not None,
-                creature.mouth is not None,
-                creature.hat is not None,
+        title = Text(
+            "BODY RIG VALIDATION",
+            font_size=34,
+        )
+
+        title.to_edge(UP)
+
+        self.add(title)
+
+        # -------------------------------------------------
+        # CREATURE
+        # -------------------------------------------------
+
+        creature = build_body_rig()
+
+        creature.move_to(
+            vec3(
+                0.0,
+                -1.0,
+                0.0,
             )
+        )
 
-        self.play(FadeIn(creature))
-        self.play(FadeIn(title))
-        self.wait(DEFAULT_WAIT_TIME)
+        self.add(creature)
 
-        if DEFAULT_SHOW_DEBUG_LABELS:
-            logger.debug(
-                "TestBodyScene debug | creature_name=%s group_name=%s",
-                getattr(creature, "name", "unnamed_creature"),
-                getattr(content, "name", "unnamed_group"),
+        # -------------------------------------------------
+        # DEBUG
+        # -------------------------------------------------
+
+        creature.enable_debug()
+
+        # -------------------------------------------------
+        # CONTROLLERS
+        # -------------------------------------------------
+
+        movement_controller = (
+            build_movement_controller(
+                creature
             )
+        )
 
-        if LOG_SCENE_EVENTS:
-            logger.info("Finished TestBodyScene")
+        rotation_controller = (
+            build_rotation_controller(
+                creature
+            )
+        )
+
+        visibility_controller = (
+            build_visibility_controller(
+                creature
+            )
+        )
+
+        camera_controller = (
+            build_camera_controller(
+                self,
+                creature,
+            )
+        )
+
+        # -------------------------------------------------
+        # UPDATE SYSTEM
+        # -------------------------------------------------
+
+        def master_update(_, dt):
+
+            movement_controller.update(dt)
+
+            rotation_controller.update(dt)
+
+            visibility_controller.update(dt)
+
+            camera_controller.update(dt)
+
+        creature.add_updater(
+            master_update
+        )
+
+        # =================================================
+        # TEST 1
+        # INITIAL POSE
+        # =================================================
+
+        self.wait(2)
+
+        # =================================================
+        # TEST 2
+        # ROOT ROTATION
+        # =================================================
+
+        self.play(
+            Rotate(
+                creature,
+                angle=PI / 4,
+                run_time=2,
+            )
+        )
+
+        self.wait(1)
+
+        self.play(
+            Rotate(
+                creature,
+                angle=-PI / 2,
+                run_time=2,
+            )
+        )
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 3
+        # SCALING
+        # =================================================
+
+        self.play(
+            creature.animate.scale(1.2),
+            run_time=2,
+        )
+
+        self.wait(1)
+
+        self.play(
+            creature.animate.scale(0.83),
+            run_time=2,
+        )
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 4
+        # TELEPORT
+        # =================================================
+
+        movement_controller.teleport(
+            vec3(
+                -4.0,
+                -1.0,
+                0.0,
+            )
+        )
+
+        self.wait(2)
+
+        movement_controller.teleport(
+            vec3(
+                4.0,
+                -1.0,
+                0.0,
+            )
+        )
+
+        self.wait(2)
+
+        # =================================================
+        # TEST 5
+        # WALK VALIDATION
+        # =================================================
+
+        movement_controller.walk_to(
+            vec3(
+                0.0,
+                -1.0,
+                0.0,
+            ),
+            speed=1.0,
+        )
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 6
+        # TURN VALIDATION
+        # =================================================
+
+        rotation_controller.rotate_left()
+
+        self.wait(2)
+
+        rotation_controller.stop_rotation()
+
+        self.wait(1)
+
+        rotation_controller.rotate_right()
+
+        self.wait(2)
+
+        rotation_controller.stop_rotation()
+
+        self.wait(1)
+
+        # =================================================
+        # TEST 7
+        # VISIBILITY VALIDATION
+        # =================================================
+
+        visibility_controller.hide(
+            animated=True
+        )
+
+        self.wait(2)
+
+        visibility_controller.show(
+            animated=True
+        )
+
+        self.wait(2)
+
+        # =================================================
+        # TEST 8
+        # CAMERA FOLLOW
+        # =================================================
+
+        camera_controller.follow_creature()
+
+        movement_controller.walk_to(
+            vec3(
+                5.0,
+                1.5,
+                0.0,
+            ),
+            speed=1.1,
+        )
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 9
+        # ORBIT CAMERA
+        # =================================================
+
+        camera_controller.orbit_creature()
+
+        self.wait(5)
+
+        # =================================================
+        # TEST 10
+        # CINEMATIC CAMERA
+        # =================================================
+
+        camera_controller.cinematic_mode()
+
+        movement_controller.walk_to(
+            vec3(
+                -5.0,
+                0.0,
+                0.0,
+            ),
+            speed=1.3,
+        )
+
+        self.wait(6)
+
+        # =================================================
+        # TEST 11
+        # IDLE VALIDATION
+        # =================================================
+
+        movement_controller.stop()
+
+        self.wait(6)
+
+        # =================================================
+        # TEST 12
+        # FINAL CENTER VALIDATION
+        # =================================================
+
+        center_dot = Dot(
+            creature.get_center(),
+            radius=0.08,
+            color=RED,
+        )
+
+        self.add(center_dot)
+
+        self.wait(3)
+
+        # -------------------------------------------------
+        # CLEANUP
+        # -------------------------------------------------
+
+        creature.remove_updater(
+            master_update
+        )
+
+        self.wait(1)

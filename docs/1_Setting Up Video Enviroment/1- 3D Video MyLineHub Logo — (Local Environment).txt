@@ -14,6 +14,8 @@ If not installed, install from official site.
 
 2. Install system dependencies
 brew install python@3.10 ffmpeg pkg-config cairo
+brew install portaudio
+
 These are required for:
 Python runtime
 video rendering (ffmpeg)

@@ -169,7 +169,7 @@ Midpoint:
 M = ((-g/2 + g/2)/2, (y_eye + y_eye)/2)
   = (0, y_eye)
 So:
-nose x = 0 (centered) nose aligns exactly between eyes
+nose x = 0 (centered)nose aligns exactly between eyes
 
 13. Now vertical placement
 y_nose = y_eye - (NOSE_HEIGHT × 1.4)

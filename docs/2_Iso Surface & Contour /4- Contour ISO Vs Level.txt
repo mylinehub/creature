@@ -6,7 +6,7 @@ The core difference
 iso and level are related, but they point to different parts of the idea.
 iso
 iso means:
-same or equal
+sameorequal
 It talks about the property of the points.
 So when we say:
 isoline
@@ -98,9 +98,9 @@ So both are useful.
 Think of a classroom analogy
 Suppose a teacher says:
 “All students in this row scored the same marks.”
-That is the iso idea: they are equal.
+That is the iso idea:they are equal.
 Now suppose the score is 85.
-That is the level: the chosen value is 85.
+That is the level:the chosen value is 85.
 So:
 same marks = iso
 marks = 85 = level
@@ -127,7 +127,7 @@ It means “equal-X”.
 For example:
 isotherm = equal temperature
 isobar = equal pressure
-So iso by itself usually does not name the number. It tells the kind of sameness.
+So iso by itself usually does not name the number.It tells the kind of sameness.
 
 level is usually tied to the constant
 If we say:
@@ -175,10 +175,10 @@ level gives the constant-value description
 One more way to see it
 iso answers:
 What relationship do all these points share?
-Answer: They have the same value.
+Answer:They have the same value.
 level answers:
 What value do they share?
-Answer: A specific constant like 4, 30, 200, etc.
+Answer:A specific constant like 4, 30, 200, etc.
 
 Tiny summary
 For
@@ -203,7 +203,7 @@ Final compact distinction
 iso is about the equal-value nature of the set.
 level is about the specific constant value that defines the set.
 
-If you want, next I can connect this properly with level set, contour line, scalar field, isoline, isosurface, and why contour lines on a map never cross.
+If you want, next I can connect this properly withlevel set, contour line, scalar field, isoline, isosurface, and why contour lines on a map never cross.
 
 
 

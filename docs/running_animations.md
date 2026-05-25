@@ -1,342 +1,477 @@
-# Running Animations Guide  
-mathlab-mylinehub-creature
+# File: RUN_TESTS.md
 
----
+# mathlab-mylinehub-creature
+# FINAL TEST + RENDER RUN ORDER
 
-## 1. Purpose
-
-This guide explains:
-
-- how to run any scene
-- how to run one specific scene
-- how to run test scenes one by one
-- how to run character scenes
-- how to run lesson scenes
-- how to render video output
-- how to troubleshoot common issues
-
-This file is the **single source of truth** for running this project.
-
----
-
-## 2. IMPORTANT (New Structure)
-
-The project is now a **Python package**:
-
-```
-
-mathlab_creature/
-
-```
-
-So ALL scene paths must use:
-
-```
-
-mathlab_creature/scenes/...
-
-````
-
----
-
-## 3. Basic Command
+IMPORTANT:
+Activate local environment first.
 
 ```bash
-manimgl <file_path> <SceneClass>
-````
-
----
-
-## 4. Correct Usage (VERY IMPORTANT)
-
-### ❌ OLD (WILL FAIL)
-
-```bash
-manimgl scenes/tests/test_pose_scene.py TestPoseScene
+source .venv/bin/activate
 ```
 
-### ✅ NEW (CORRECT)
+Verify:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene
+which python
+```
+
+Expected:
+
+```text
+.../.venv/bin/python
 ```
 
 ---
 
-## 5. Output Variants
+# ABOUT render_scene.py
 
-### Preview
+YES.
 
-```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene
+```text
+render_scene.py
+```
+
+is ALSO a test.
+
+But it is a:
+
+```text
+FINAL CINEMATIC INTEGRATION TEST
+```
+
+Meaning:
+
+- all systems together
+- all actions together
+- all props together
+- all audio together
+- all timing together
+- final storytelling flow
+
+So:
+
+```text
+test_* files
+```
+
+=
+isolated validation
+
+BUT:
+
+```text
+render_scene.py
+```
+
+=
+FULL SYSTEM VALIDATION
+
+It is basically:
+
+```text
+FINAL MASTER TEST
 ```
 
 ---
 
-### Write video
+# WHY WE CREATED MANY TEST FILES
+
+Because production systems need:
+
+- isolated debugging
+- isolated validation
+- faster testing
+- sound-only testing
+- walk-only testing
+- action-only testing
+
+If one thing breaks:
+- easier to locate
+- easier to debug
+- easier to tune
+
+This is GOOD architecture.
+
+---
+
+# HOW TEST FILES WORK
+
+Each file tests ONE area.
+
+Example:
+
+```text
+test_audio_scene.py
+```
+
+tests:
+- audio boot
+- pyo
+- playback
+
+---
+
+```text
+test_walk_audio_scene.py
+```
+
+tests:
+- footsteps
+- timing
+- left/right rhythm
+
+---
+
+```text
+test_sound_toggle_scene.py
+```
+
+tests:
+- with_sound=True
+- with_sound=False
+
+---
+
+```text
+test_master_audio_scene.py
+```
+
+tests:
+- FULL cinematic audio flow
+
+---
+
+# IMPORTANT
+
+You do NOT run all tests every time.
+
+Usually:
+
+## during development
+
+run only:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene -w
+manimgl mathlab_creature/scenes/tests/test_walk_audio_scene.py TestWalkAudioScene
+```
+
+OR:
+
+```bash
+manimgl mathlab_creature/scenes/tests/test_audio_scene.py TestAudioScene
 ```
 
 ---
 
-### Save final frame
+## before commit / validation
+
+run:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene -s
+manimgl mathlab_creature/scenes/tests/test_master_audio_scene.py TestMasterAudioScene
 ```
 
 ---
 
-### Open after render
+## final production validation
+
+run:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene -o
+manimgl render_scene.py MasterRenderScene
 ```
 
 ---
 
-## 6. First Quick Run (Sanity Check)
+# FINAL RUN ORDER
+
+Run IN THIS ORDER.
+
+---
+
+# 1. VERIFY PYO
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_boot_scene.py TestBootScene
+python -c "from pyo import *; s=Server().boot(); print('PYO OK')"
 ```
 
 ---
 
-## 7. Master Scene
+# 2. VERIFY PACKAGE
 
 ```bash
-manimgl mathlab_creature/render_scene.py MasterRenderScene
+python -c "import mathlab_creature; print('PACKAGE OK')"
 ```
 
 ---
 
-## 8. Test Scenes
+# 3. AUDIO BOOT TEST
 
----
+FILE:
+test_audio_scene.py
 
-### Boot
-
-```bash
-manimgl mathlab_creature/scenes/tests/test_boot_scene.py TestBootScene
-```
-
----
-
-### Body
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_body_scene.py TestBodyScene
+manimgl mathlab_creature/scenes/tests/test_audio_scene.py TestAudioScene
 ```
+
+Purpose:
+- verify audio boots
+- verify no crashes
+- verify procedural playback
 
 ---
 
-### Face
+# 4. SOUND TOGGLE TEST
+
+FILE:
+test_sound_toggle_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_face_scene.py TestFaceScene
+manimgl mathlab_creature/scenes/tests/test_sound_toggle_scene.py TestSoundToggleScene
 ```
+
+Purpose:
+- verify with_sound=True
+- verify with_sound=False
+- verify silent mode safe
+
+IMPORTANT:
+Animation should remain IDENTICAL.
+Only sound changes.
 
 ---
 
-### Hat
+# 5. WALK AUDIO TEST
+
+FILE:
+test_walk_audio_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_hat_scene.py TestHatScene
+manimgl mathlab_creature/scenes/tests/test_walk_audio_scene.py TestWalkAudioScene
 ```
+
+Purpose:
+- verify footsteps
+- verify timing
+- verify left/right alternation
+- verify mascot walk feel
 
 ---
 
-### Limbs
+# 6. PROCEDURAL AUDIO TEST
+
+FILE:
+test_procedural_audio_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_limbs_scene.py TestLimbsScene
+manimgl mathlab_creature/scenes/tests/test_procedural_audio_scene.py TestProceduralAudioScene
 ```
+
+Purpose:
+- verify synthesis
+- verify envelopes
+- verify timing
+- verify layering
 
 ---
 
-### Pose
+# 7. ACTIONS TEST
 
-```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene
-```
+FILE:
+test_actions_scene.py
 
----
-
-### Actions
+Command:
 
 ```bash
 manimgl mathlab_creature/scenes/tests/test_actions_scene.py TestActionsScene
 ```
 
+Purpose:
+- verify walk
+- verify blink
+- verify wave
+- verify hop
+- verify point
+- verify look
+- verify integration
+
 ---
 
-### Props
+# 8. WALK CYCLE TEST
+
+FILE:
+test_walk_cycle_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_props_scene.py TestPropsScene
+manimgl mathlab_creature/scenes/tests/test_walk_cycle_scene.py TestWalkCycleScene
+```
+
+Purpose:
+- verify gait
+- verify bounce
+- verify sway
+- verify cinematic locomotion
+
+---
+
+# 9. BALANCE TEST
+
+FILE:
+test_balance_scene.py
+
+Command:
+
+```bash
+manimgl mathlab_creature/scenes/tests/test_balance_scene.py TestBalanceScene
 ```
 
 ---
 
-## 9. Character Scenes
+# 10. ROTATION TEST
 
----
+FILE:
+test_rotation_scene.py
 
-### Intro
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/character/mascot_intro_scene.py MascotIntroScene
+manimgl mathlab_creature/scenes/tests/test_rotation_scene.py TestRotationScene
 ```
 
 ---
 
-### Wave
+# 11. LEG KINEMATICS TEST
+
+FILE:
+test_leg_kinematics_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/character/mascot_wave_scene.py MascotWaveScene
+manimgl mathlab_creature/scenes/tests/test_leg_kinematics_scene.py TestLegKinematicsScene
 ```
 
 ---
 
-### Walk
+# 12. INTERACTIVE CONTROLLER TEST
+
+FILE:
+test_interactive_controller_scene.py
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/character/mascot_walk_scene.py MascotWalkScene
+manimgl mathlab_creature/scenes/tests/test_interactive_controller_scene.py TestInteractiveControllerScene
 ```
 
 ---
 
-### Point
+# 13. MASTER AUDIO DEMO
+
+FILE:
+test_master_audio_scene.py
+
+THIS IS THE MAIN AUDIO VALIDATION.
+
+Command:
 
 ```bash
-manimgl mathlab_creature/scenes/character/mascot_point_scene.py MascotPointScene
+manimgl mathlab_creature/scenes/tests/test_master_audio_scene.py TestMasterAudioScene
+```
+
+Purpose:
+- cinematic audio
+- mascot storytelling
+- layered procedural sound
+- integrated audio flow
+- educational rhythm
+
+---
+
+# 14. FINAL MASTER RENDER
+
+FILE:
+render_scene.py
+
+THIS IS THE FINAL FULL SYSTEM TEST.
+
+Command:
+
+```bash
+manimgl render_scene.py MasterRenderScene
+```
+
+Purpose:
+- final cinematic validation
+- full storytelling
+- all systems together
+- all actions together
+- all props together
+- all audio together
+
+---
+
+# 15. WRITE VIDEO OUTPUT
+
+Example:
+
+```bash
+manimgl render_scene.py MasterRenderScene -w
 ```
 
 ---
 
-### Teach
+# 16. OPEN AFTER RENDER
+
+Example:
 
 ```bash
-manimgl mathlab_creature/scenes/character/mascot_teach_scene.py MascotTeachScene
+manimgl render_scene.py MasterRenderScene -o
 ```
 
 ---
 
-## 10. Lesson Scenes
+# 17. SAVE FINAL FRAME
 
----
-
-### Vectors
+Example:
 
 ```bash
-manimgl mathlab_creature/scenes/lessons/vectors_intro_scene.py VectorsIntroScene
+manimgl render_scene.py MasterRenderScene -s
 ```
 
 ---
 
-### Coordinates
+# MOST IMPORTANT TESTS
+
+RUN THESE FIRST:
 
 ```bash
-manimgl mathlab_creature/scenes/lessons/coordinates_intro_scene.py CoordinatesIntroScene
+manimgl mathlab_creature/scenes/tests/test_audio_scene.py TestAudioScene
 ```
-
----
-
-### Matrix
 
 ```bash
-manimgl mathlab_creature/scenes/lessons/matrix_intro_scene.py MatrixIntroScene
+manimgl mathlab_creature/scenes/tests/test_sound_toggle_scene.py TestSoundToggleScene
 ```
-
----
-
-## 11. Recommended Run Order
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_boot_scene.py TestBootScene
-manimgl mathlab_creature/scenes/tests/test_body_scene.py TestBodyScene
-manimgl mathlab_creature/scenes/tests/test_face_scene.py TestFaceScene
-manimgl mathlab_creature/scenes/tests/test_hat_scene.py TestHatScene
-manimgl mathlab_creature/scenes/tests/test_limbs_scene.py TestLimbsScene
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene
-manimgl mathlab_creature/scenes/tests/test_actions_scene.py TestActionsScene
-manimgl mathlab_creature/scenes/tests/test_props_scene.py TestPropsScene
-manimgl mathlab_creature/scenes/character/mascot_intro_scene.py MascotIntroScene
-manimgl mathlab_creature/scenes/character/mascot_wave_scene.py MascotWaveScene
-manimgl mathlab_creature/scenes/character/mascot_walk_scene.py MascotWalkScene
-manimgl mathlab_creature/scenes/character/mascot_point_scene.py MascotPointScene
-manimgl mathlab_creature/scenes/character/mascot_teach_scene.py MascotTeachScene
-manimgl mathlab_creature/scenes/lessons/coordinates_intro_scene.py CoordinatesIntroScene
-manimgl mathlab_creature/scenes/lessons/vectors_intro_scene.py VectorsIntroScene
-manimgl mathlab_creature/scenes/lessons/matrix_intro_scene.py MatrixIntroScene
-manimgl mathlab_creature/render_scene.py MasterRenderScene
+manimgl mathlab_creature/scenes/tests/test_walk_audio_scene.py TestWalkAudioScene
 ```
-
----
-
-## 12. If Something Fails
-
-### Step 1
 
 ```bash
-manimgl mathlab_creature/scenes/tests/test_boot_scene.py TestBootScene
+manimgl mathlab_creature/scenes/tests/test_master_audio_scene.py TestMasterAudioScene
 ```
-
----
-
-### Step 2
 
 ```bash
-python -c "import mathlab_creature"
+manimgl render_scene.py MasterRenderScene
 ```
-
----
-
-### Step 3
-
-```bash
-pip install -e .
-```
-
----
-
-## 13. Most Common Mistake
-
-❌ Using old path:
-
-```bash
-manimgl scenes/...
-```
-
-✅ Correct:
-
-```bash
-manimgl mathlab_creature/scenes/...
-```
-
----
-
-## 14. Final Note
-
-This project is now:
-
-* a **Python package**
-* a **reusable animation engine**
-* a **teaching system**
-
-Always use the **package path**.
-
----
-
-## 15. Your Quick Command
-
-```bash
-manimgl mathlab_creature/scenes/tests/test_pose_scene.py TestPoseScene
-```
-
----
-
-````

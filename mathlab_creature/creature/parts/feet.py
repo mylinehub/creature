@@ -1,422 +1,724 @@
 """
-Foot construction for mathlab-mylinehub-creature.
+mathlab_creature/creature/parts/feet.py
 
-This file builds the creature's feet as small rounded horizontal shapes
-attached to the ends of the leg lines.
+Production-grade articulated foot system
+for creature locomotion and balance.
 
-Version 1 goals:
-- keep feet simple and readable
-- attach feet cleanly to leg ends
-- support a stable standing silhouette
-- keep styling controlled by config
+Core Responsibilities
+---------------------
+- planted state
+- lifted state
+- foot rotation
+- walk contact realism
+- foot roll support
+- ankle attachment
+- ground contact logic
 
-This file only builds foot geometry.
-Detailed shoe-like styling is intentionally not added yet.
+Design Goals
+------------
+- production-ready
+- animation-safe
+- hierarchy-safe
+- procedural-walk-ready
+- future IK-ready
+- future 3D-ready
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
-from manimlib import RoundedRectangle, VGroup
 
-from mathlab_creature.config.colors import CREATURE_FOOT_COLOR
-from mathlab_creature.config.defaults import DEBUG_MODE
-from mathlab_creature.config.defaults import LEFT_FOOT_NAME
-from mathlab_creature.config.defaults import LOG_CREATURE_BUILD
-from mathlab_creature.config.defaults import RIGHT_FOOT_NAME
-from mathlab_creature.config.sizes import FOOT_HEIGHT
-from mathlab_creature.config.sizes import FOOT_WIDTH
+from manimlib import (
+    VGroup,
+    RoundedRectangle,
+    Dot,
+    Line,
+    Arc,
+    Text,
+)
 
-from mathlab_creature.creature.parts.legs import build_left_leg
-from mathlab_creature.creature.parts.legs import build_right_leg
+from manimlib.constants import (
+    BLUE_E,
+    GREY_B,
+    WHITE,
+    GREEN,
+    YELLOW,
+    RED,
+    PI,
+)
 
-from mathlab_creature.core.geometry import point
-from mathlab_creature.core.logger import get_logger
-from mathlab_creature.core.naming import creature_pair_part_names
-from mathlab_creature.core.naming import creature_part_name
+from mathlab_creature.core.transforms import (
+    TransformNode,
+    create_transform_node,
+    vec3,
+)
 
-logger = get_logger(__name__)
+from mathlab_creature.core.debug_draw import (
+    create_local_axes,
+)
 
 
-# ============================================================
-# Internal helpers
-# ============================================================
+# =========================================================
+# CONFIG
+# =========================================================
 
-def _validate_numeric(name: str, value: float | int) -> float:
+@dataclass
+class FootConfig:
     """
-    Ensure a numeric value and return it as float.
+    Tunable foot proportions.
     """
-    if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
-    return float(value)
+
+    width: float = 0.55
+    height: float = 0.22
+
+    corner_radius: float = 0.11
+
+    foot_color = BLUE_E
+
+    sole_color = GREY_B
+
+    stroke_width: float = 0
+
+    debug_axis_length: float = 0.4
+
+    contact_arc_radius: float = 0.25
+
+    heel_offset: float = 0.12
+    toe_offset: float = 0.18
 
 
-def _validate_positive(name: str, value: float | int) -> float:
+# =========================================================
+# FOOT
+# =========================================================
+
+class Foot(VGroup):
     """
-    Ensure a positive numeric value.
+    Production-grade articulated foot.
+
+    Responsibilities:
+    - walk contact realism
+    - planted/lifted state
+    - foot rotation
+    - future foot roll
+    - ankle connection
     """
-    value = _validate_numeric(name, value)
-    if value <= 0:
-        raise ValueError(f"{name} must be > 0, got {value}")
-    return value
 
+    def __init__(
+        self,
+        config: FootConfig | None = None,
+        side: str = "left",
+        name: str = "foot",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
 
-def _validate_non_negative(name: str, value: float | int) -> float:
-    """
-    Ensure a non-negative numeric value.
-    """
-    value = _validate_numeric(name, value)
-    if value < 0:
-        raise ValueError(f"{name} must be >= 0, got {value}")
-    return value
+        self.config = config or FootConfig()
 
+        self.side = side
+        self.foot_name = name
 
-def _coerce_point3(value, name: str = "value") -> np.ndarray:
-    """
-    Normalize a point-like input into a clean 3D numpy point.
-    """
-    if isinstance(value, np.ndarray):
-        if value.shape != (3,):
-            raise ValueError(f"{name} must have shape (3,), got {value.shape}")
-        return value.astype(float)
+        # -------------------------------------------------
+        # TRANSFORM NODE
+        # -------------------------------------------------
 
-    if isinstance(value, (tuple, list)):
-        if len(value) != 3:
-            raise ValueError(f"{name} must contain exactly 3 values, got {len(value)}")
-        return point(value[0], value[1], value[2])
-
-    raise TypeError(f"{name} must be a numpy.ndarray or 3-item tuple/list")
-
-
-# ============================================================
-# Internal builder
-# ============================================================
-
-def _build_foot_shape(
-    *,
-    width: float = FOOT_WIDTH,
-    height: float = FOOT_HEIGHT,
-    fill_color: str = CREATURE_FOOT_COLOR,
-    stroke_color: str = CREATURE_FOOT_COLOR,
-    stroke_width: float = 0.0,
-    corner_radius_ratio: float = 0.45,
-) -> RoundedRectangle:
-    """
-    Build a simple foot shape.
-
-    Version 1 uses a small rounded rectangle so the foot is:
-    - easy to see
-    - stable-looking
-    - easy to replace later
-    """
-    width = _validate_positive("width", width)
-    height = _validate_positive("height", height)
-    stroke_width = _validate_non_negative("stroke_width", stroke_width)
-    corner_radius_ratio = _validate_non_negative("corner_radius_ratio", corner_radius_ratio)
-
-    foot = RoundedRectangle(
-        width=width,
-        height=height,
-        corner_radius=height * corner_radius_ratio,
-    )
-    foot.set_fill(fill_color, opacity=1.0)
-    foot.set_stroke(stroke_color, width=stroke_width)
-    return foot
-
-
-def _build_single_foot(
-    end_point,
-    *,
-    foot_name: str = "foot",
-    width: float = FOOT_WIDTH,
-    height: float = FOOT_HEIGHT,
-    fill_color: str = CREATURE_FOOT_COLOR,
-    stroke_color: str = CREATURE_FOOT_COLOR,
-    stroke_width: float = 0.0,
-    corner_radius_ratio: float = 0.45,
-) -> RoundedRectangle:
-    """
-    Build a single foot positioned at a supplied leg-end point.
-    """
-    end_point = _coerce_point3(end_point, "end_point")
-
-    foot = _build_foot_shape(
-        width=width,
-        height=height,
-        fill_color=fill_color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        corner_radius_ratio=corner_radius_ratio,
-    )
-    foot.move_to(end_point)
-    foot.name = foot_name
-
-    # Lightweight metadata for later standing / walk logic
-    foot.foot_center = end_point
-    foot.foot_width = width
-    foot.foot_height = height
-
-    if DEBUG_MODE:
-        logger.debug(
-            "Built foot | name=%s center=%s width=%.3f height=%.3f",
-            foot_name,
-            end_point,
-            width,
-            height,
+        self.transform_node = create_transform_node(
+            name=name,
+            mobject=self,
         )
 
-    return foot
+        # -------------------------------------------------
+        # INTERNAL STATE
+        # -------------------------------------------------
+
+        self.current_rotation = 0.0
+
+        self.is_planted = True
+
+        self.contact_weight = 1.0
+
+        self.debug_enabled = False
+
+        # -------------------------------------------------
+        # BUILD
+        # -------------------------------------------------
+
+        self._build_foot()
+        self._register_anchors()
+        self._build_debug()
+
+        self._update_debug_visibility()
+
+    # =====================================================
+    # BUILD FOOT
+    # =====================================================
+
+    def _build_foot(self):
+        """
+        Main foot geometry.
+        """
+
+        # -------------------------------------------------
+        # MAIN FOOT
+        # -------------------------------------------------
+
+        self.foot_body = RoundedRectangle(
+            width=self.config.width,
+            height=self.config.height,
+            corner_radius=self.config.corner_radius,
+            stroke_width=self.config.stroke_width,
+            fill_color=self.config.foot_color,
+            fill_opacity=1.0,
+        )
+
+        # -------------------------------------------------
+        # SOLE
+        # -------------------------------------------------
+
+        self.sole = RoundedRectangle(
+            width=self.config.width * 0.92,
+            height=self.config.height * 0.28,
+            corner_radius=self.config.corner_radius,
+            stroke_width=0,
+            fill_color=self.config.sole_color,
+            fill_opacity=0.85,
+        )
+
+        self.sole.move_to(
+            vec3(
+                0.0,
+                -self.config.height * 0.28,
+                0.0,
+            )
+        )
+
+        self.add(
+            self.foot_body,
+            self.sole,
+        )
+
+    # =====================================================
+    # ANCHORS
+    # =====================================================
+
+    def _register_anchors(self):
+        """
+        Register important foot anchors.
+        """
+
+        half_width = self.config.width / 2.0
+        half_height = self.config.height / 2.0
+
+        # -------------------------------------------------
+        # ROOT / ANKLE
+        # -------------------------------------------------
+
+        self.ankle_anchor = vec3(
+            0.0,
+            half_height,
+            0.0,
+        )
+
+        # -------------------------------------------------
+        # CENTER
+        # -------------------------------------------------
+
+        self.center_anchor = vec3()
+
+        # -------------------------------------------------
+        # HEEL
+        # -------------------------------------------------
+
+        self.heel_anchor = vec3(
+            -half_width + self.config.heel_offset,
+            -half_height,
+            0.0,
+        )
+
+        # -------------------------------------------------
+        # TOE
+        # -------------------------------------------------
+
+        self.toe_anchor = vec3(
+            half_width - self.config.toe_offset,
+            -half_height,
+            0.0,
+        )
+
+        # -------------------------------------------------
+        # GROUND CONTACT
+        # -------------------------------------------------
+
+        self.contact_anchor = vec3(
+            0.0,
+            -half_height,
+            0.0,
+        )
+
+        # -------------------------------------------------
+        # TRANSFORM NODE
+        # -------------------------------------------------
+
+        self.transform_node.set_center_point(
+            self.center_anchor
+        )
+
+        self.transform_node.set_root_pivot(
+            self.ankle_anchor
+        )
+
+    # =====================================================
+    # DEBUG BUILD
+    # =====================================================
+
+    def _build_debug(self):
+        """
+        Build debug overlays.
+        """
+
+        self.debug_group = VGroup()
+
+        # -------------------------------------------------
+        # LOCAL AXES
+        # -------------------------------------------------
+
+        self.axes_debug = create_local_axes(
+            origin=vec3(),
+            axis_length=self.config.debug_axis_length,
+        )
+
+        # -------------------------------------------------
+        # ANKLE DOT
+        # -------------------------------------------------
+
+        self.ankle_dot = Dot(
+            point=self.ankle_anchor,
+            radius=0.03,
+            color=GREEN,
+        )
+
+        # -------------------------------------------------
+        # HEEL DOT
+        # -------------------------------------------------
+
+        self.heel_dot = Dot(
+            point=self.heel_anchor,
+            radius=0.025,
+            color=YELLOW,
+        )
+
+        # -------------------------------------------------
+        # TOE DOT
+        # -------------------------------------------------
+
+        self.toe_dot = Dot(
+            point=self.toe_anchor,
+            radius=0.025,
+            color=RED,
+        )
+
+        # -------------------------------------------------
+        # CONTACT ARC
+        # -------------------------------------------------
+
+        self.contact_arc = Arc(
+            radius=self.config.contact_arc_radius,
+            start_angle=-PI / 2,
+            angle=0.001,
+            color=WHITE,
+            stroke_width=2,
+        )
+
+        # -------------------------------------------------
+        # CONTACT VECTOR
+        # -------------------------------------------------
+
+        self.contact_line = Line(
+            vec3(),
+            vec3(0.0, -0.5, 0.0),
+            color=WHITE,
+            stroke_width=2,
+        )
+
+        # -------------------------------------------------
+        # ROTATION LABEL
+        # -------------------------------------------------
+
+        self.rotation_text = (
+            Text(
+                "0°",
+                font_size=18,
+            )
+            .scale(0.35)
+            .move_to(
+                vec3(
+                    0.0,
+                    0.45,
+                    0.0,
+                )
+            )
+        )
+
+        # -------------------------------------------------
+        # STATE LABEL
+        # -------------------------------------------------
+
+        self.state_text = (
+            Text(
+                "PLANTED",
+                font_size=18,
+                color=GREEN,
+            )
+            .scale(0.35)
+            .move_to(
+                vec3(
+                    0.0,
+                    -0.45,
+                    0.0,
+                )
+            )
+        )
+
+        # -------------------------------------------------
+        # ASSEMBLE
+        # -------------------------------------------------
+
+        self.debug_group.add(
+            self.axes_debug,
+            self.ankle_dot,
+            self.heel_dot,
+            self.toe_dot,
+            self.contact_arc,
+            self.contact_line,
+            self.rotation_text,
+            self.state_text,
+        )
+
+        self.add(self.debug_group)
+
+    # =====================================================
+    # DEBUG VISIBILITY
+    # =====================================================
+
+    def _update_debug_visibility(self):
+        opacity = 1.0 if self.debug_enabled else 0.0
+
+        self.debug_group.set_opacity(opacity)
+
+    # =====================================================
+    # DEBUG CONTROL
+    # =====================================================
+
+    def enable_debug(self):
+        self.debug_enabled = True
+        self._update_debug_visibility()
+
+    def disable_debug(self):
+        self.debug_enabled = False
+        self._update_debug_visibility()
+
+    def toggle_debug(self):
+        self.debug_enabled = not self.debug_enabled
+        self._update_debug_visibility()
+
+    # =====================================================
+    # FOOT ROTATION
+    # =====================================================
+
+    def set_rotation(
+        self,
+        angle: float,
+    ):
+        """
+        Set foot articulation angle.
+        """
+
+        self.current_rotation = angle
+
+        self._update_visuals()
+
+    def rotate_foot(
+        self,
+        delta_angle: float,
+    ):
+        """
+        Incremental foot rotation.
+        """
+
+        self.current_rotation += delta_angle
+
+        self._update_visuals()
+
+    # =====================================================
+    # CONTACT STATES
+    # =====================================================
+
+    def set_planted(self):
+        """
+        Foot fully planted.
+        """
+
+        self.is_planted = True
+
+        self.contact_weight = 1.0
+
+        self._update_state_visual()
+
+    def set_lifted(self):
+        """
+        Foot lifted during walk cycle.
+        """
+
+        self.is_planted = False
+
+        self.contact_weight = 0.0
+
+        self._update_state_visual()
+
+    def set_contact_weight(
+        self,
+        weight: float,
+    ):
+        """
+        Procedural contact blending.
+        """
+
+        self.contact_weight = np.clip(
+            weight,
+            0.0,
+            1.0,
+        )
+
+    # =====================================================
+    # VISUAL UPDATE
+    # =====================================================
+
+    def _update_visuals(self):
+        """
+        Update debug visuals.
+        """
+
+        # -------------------------------------------------
+        # CONTACT ARC
+        # -------------------------------------------------
+
+        new_arc = Arc(
+            radius=self.config.contact_arc_radius,
+            start_angle=-PI / 2,
+            angle=self.current_rotation,
+            color=WHITE,
+            stroke_width=2,
+        )
+
+        self.contact_arc.become(new_arc)
+
+        # -------------------------------------------------
+        # CONTACT VECTOR
+        # -------------------------------------------------
+
+        direction = vec3(
+            np.sin(self.current_rotation),
+            -np.cos(self.current_rotation),
+            0.0,
+        )
+
+        end = direction * 0.5
+
+        new_line = Line(
+            vec3(),
+            end,
+            color=WHITE,
+            stroke_width=2,
+        )
+
+        self.contact_line.become(new_line)
+
+        # -------------------------------------------------
+        # ROTATION LABEL
+        # -------------------------------------------------
+
+        degrees = round(
+            np.degrees(self.current_rotation),
+            1,
+        )
+
+        new_text = (
+            Text(
+                f"{degrees}°",
+                font_size=18,
+            )
+            .scale(0.35)
+            .move_to(
+                vec3(
+                    0.0,
+                    0.45,
+                    0.0,
+                )
+            )
+        )
+
+        self.rotation_text.become(new_text)
+
+    # =====================================================
+    # STATE VISUAL
+    # =====================================================
+
+    def _update_state_visual(self):
+        """
+        Update planted/lifted text.
+        """
+
+        label = (
+            "PLANTED"
+            if self.is_planted
+            else "LIFTED"
+        )
+
+        color = (
+            GREEN
+            if self.is_planted
+            else YELLOW
+        )
+
+        new_text = (
+            Text(
+                label,
+                font_size=18,
+                color=color,
+            )
+            .scale(0.35)
+            .move_to(
+                vec3(
+                    0.0,
+                    -0.45,
+                    0.0,
+                )
+            )
+        )
+
+        self.state_text.become(new_text)
+
+    # =====================================================
+    # ACCESSORS
+    # =====================================================
+
+    def get_transform_node(self) -> TransformNode:
+        return self.transform_node
+
+    # =====================================================
+    # ANCHOR ACCESS
+    # =====================================================
+
+    def get_ankle_anchor(self):
+        return np.array(self.ankle_anchor)
+
+    def get_heel_anchor(self):
+        return np.array(self.heel_anchor)
+
+    def get_toe_anchor(self):
+        return np.array(self.toe_anchor)
+
+    def get_contact_anchor(self):
+        return np.array(self.contact_anchor)
+
+    def get_center_anchor(self):
+        return np.array(self.center_anchor)
+
+    # =====================================================
+    # STATE ACCESS
+    # =====================================================
+
+    def get_rotation(self) -> float:
+        return self.current_rotation
+
+    def foot_is_planted(self) -> bool:
+        return self.is_planted
+
+    def get_contact_weight(self) -> float:
+        return self.contact_weight
+
+    # =====================================================
+    # RESET
+    # =====================================================
+
+    def reset_foot(self):
+        """
+        Reset procedural foot state.
+        """
+
+        self.current_rotation = 0.0
+
+        self.is_planted = True
+
+        self.contact_weight = 1.0
+
+        self._update_visuals()
+        self._update_state_visual()
+
+    # =====================================================
+    # DEBUG PRINT
+    # =====================================================
+
+    def debug_print(self):
+        print("========== FOOT DEBUG ==========")
+        print("Name:", self.foot_name)
+        print("Rotation:", self.current_rotation)
+        print("Planted:", self.is_planted)
+        print("Contact Weight:", self.contact_weight)
+        print("================================")
+
+    # =====================================================
+    # REPRESENTATION
+    # =====================================================
+
+    def __repr__(self):
+        return (
+            f"Foot("
+            f"name='{self.foot_name}', "
+            f"rotation={round(self.current_rotation, 3)}"
+            f")"
+        )
 
 
-# ============================================================
-# Public builders
-# ============================================================
+# =========================================================
+# FACTORY HELPERS
+# =========================================================
 
 def build_left_foot(
-    body_center=None,
-    *,
-    leg=None,
-    leg_direction: str = "down",
-    width: float = FOOT_WIDTH,
-    height: float = FOOT_HEIGHT,
-    fill_color: str = CREATURE_FOOT_COLOR,
-    stroke_color: str = CREATURE_FOOT_COLOR,
-    stroke_width: float = 0.0,
-    corner_radius_ratio: float = 0.45,
-) -> RoundedRectangle:
-    """
-    Build left foot at the end of the left leg.
-
-    Parameters:
-        body_center:
-            Optional body center used if a leg is built internally.
-
-        leg:
-            Optional prebuilt left leg. If provided, its end point is used.
-
-        leg_direction:
-            Direction used only when leg is not provided.
-
-        width:
-            Foot width.
-
-        height:
-            Foot height.
-
-        fill_color:
-            Foot fill color.
-
-        stroke_color:
-            Foot stroke color.
-
-        stroke_width:
-            Foot stroke width.
-
-        corner_radius_ratio:
-            Rounded-corner ratio relative to foot height.
-    """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building left foot")
-
-    if leg is None:
-        leg = build_left_leg(
-            body_center=body_center,
-            direction=leg_direction,
-        )
-
-    left_foot = _build_single_foot(
-        leg.get_end(),
-        foot_name=creature_part_name(LEFT_FOOT_NAME),
-        width=width,
-        height=height,
-        fill_color=fill_color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        corner_radius_ratio=corner_radius_ratio,
+    config: FootConfig | None = None,
+) -> Foot:
+    return Foot(
+        config=config,
+        side="left",
+        name="left_foot",
     )
-
-    # Relationship metadata
-    left_foot.source_leg = leg
-
-    if LOG_CREATURE_BUILD:
-        logger.info("Left foot created successfully")
-
-    return left_foot
 
 
 def build_right_foot(
-    body_center=None,
-    *,
-    leg=None,
-    leg_direction: str = "down",
-    width: float = FOOT_WIDTH,
-    height: float = FOOT_HEIGHT,
-    fill_color: str = CREATURE_FOOT_COLOR,
-    stroke_color: str = CREATURE_FOOT_COLOR,
-    stroke_width: float = 0.0,
-    corner_radius_ratio: float = 0.45,
-) -> RoundedRectangle:
-    """
-    Build right foot at the end of the right leg.
-
-    Parameters:
-        body_center:
-            Optional body center used if a leg is built internally.
-
-        leg:
-            Optional prebuilt right leg. If provided, its end point is used.
-
-        leg_direction:
-            Direction used only when leg is not provided.
-
-        width:
-            Foot width.
-
-        height:
-            Foot height.
-
-        fill_color:
-            Foot fill color.
-
-        stroke_color:
-            Foot stroke color.
-
-        stroke_width:
-            Foot stroke width.
-
-        corner_radius_ratio:
-            Rounded-corner ratio relative to foot height.
-    """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building right foot")
-
-    if leg is None:
-        leg = build_right_leg(
-            body_center=body_center,
-            direction=leg_direction,
-        )
-
-    right_foot = _build_single_foot(
-        leg.get_end(),
-        foot_name=creature_part_name(RIGHT_FOOT_NAME),
-        width=width,
-        height=height,
-        fill_color=fill_color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        corner_radius_ratio=corner_radius_ratio,
+    config: FootConfig | None = None,
+) -> Foot:
+    return Foot(
+        config=config,
+        side="right",
+        name="right_foot",
     )
 
-    # Relationship metadata
-    right_foot.source_leg = leg
 
-    if LOG_CREATURE_BUILD:
-        logger.info("Right foot created successfully")
-
-    return right_foot
-
-
-def build_feet(
-    body_center=None,
-    *,
-    left_leg=None,
-    right_leg=None,
-    left_leg_direction: str = "down",
-    right_leg_direction: str = "down",
-    width: float = FOOT_WIDTH,
-    height: float = FOOT_HEIGHT,
-    fill_color: str = CREATURE_FOOT_COLOR,
-    stroke_color: str = CREATURE_FOOT_COLOR,
-    stroke_width: float = 0.0,
-    corner_radius_ratio: float = 0.45,
-    assign_group_name: bool = True,
-) -> VGroup:
+def build_debug_foot(
+    config: FootConfig | None = None,
+    side: str = "left",
+) -> Foot:
     """
-    Build both feet together.
-
-    Parameters:
-        body_center:
-            Optional body center used if legs are built internally.
-
-        left_leg:
-            Optional prebuilt left leg.
-
-        right_leg:
-            Optional prebuilt right leg.
-
-        left_leg_direction:
-            Direction used only when left_leg is not provided.
-
-        right_leg_direction:
-            Direction used only when right_leg is not provided.
-
-        width:
-            Shared foot width.
-
-        height:
-            Shared foot height.
-
-        fill_color:
-            Shared foot fill color.
-
-        stroke_color:
-            Shared foot stroke color.
-
-        stroke_width:
-            Shared foot stroke width.
-
-        corner_radius_ratio:
-            Shared rounded-corner ratio.
-
-        assign_group_name:
-            If True, assign a stable name to the feet group.
-
-    Returns:
-        VGroup(left_foot, right_foot)
+    Create debug-enabled foot.
     """
-    if LOG_CREATURE_BUILD:
-        logger.info("Building both feet")
 
-    left_foot = build_left_foot(
-        body_center=body_center,
-        leg=left_leg,
-        leg_direction=left_leg_direction,
-        width=width,
-        height=height,
-        fill_color=fill_color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        corner_radius_ratio=corner_radius_ratio,
+    foot = Foot(
+        config=config,
+        side=side,
+        name=f"{side}_debug_foot",
     )
 
-    right_foot = build_right_foot(
-        body_center=body_center,
-        leg=right_leg,
-        leg_direction=right_leg_direction,
-        width=width,
-        height=height,
-        fill_color=fill_color,
-        stroke_color=stroke_color,
-        stroke_width=stroke_width,
-        corner_radius_ratio=corner_radius_ratio,
-    )
+    foot.enable_debug()
 
-    feet = VGroup(left_foot, right_foot)
-
-    if assign_group_name:
-        left_name, right_name = creature_pair_part_names("foot")
-        feet.name = "creature_feet"
-        feet.left_foot_name = left_name
-        feet.right_foot_name = right_name
-
-    # Lightweight metadata for later standing / walk logic
-    feet.left_foot = left_foot
-    feet.right_foot = right_foot
-    feet.body_center = body_center
-    feet.foot_width = width
-    feet.foot_height = height
-
-    if LOG_CREATURE_BUILD:
-        logger.info("Feet created successfully")
-
-    return feet
+    return foot

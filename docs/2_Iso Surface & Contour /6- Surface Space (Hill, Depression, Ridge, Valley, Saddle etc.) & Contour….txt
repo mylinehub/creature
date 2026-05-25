@@ -6,10 +6,10 @@
 
 🧠 1. CORE IDEA (READ THIS FIRST)
 We always start with:
-[ z = f(x, y) ]
+[z = f(x, y)]
 This is a surface (3D shape)
 A contour is made by fixing height:
-[ f(x,y) = c ]
+[f(x,y) = c]
 👉 So:
 3D surface → slice at height → 2D contour
 
@@ -20,12 +20,12 @@ A contour is made by fixing height:
 ￼
 ￼
 Equation
-[ z = 10 - x^2 - y^2 ]
+[z = 10 - x^2 - y^2]
 What it means
 highest point at center
 go any direction → height decreases
 Contours
-[ x^2 + y^2 = 10 - c ]
+[x^2 + y^2 = 10 - c]
 👉 circles
 How to read
 closed loops
@@ -42,12 +42,12 @@ Real feeling
 ￼
 ￼
 Equation
-[ z = x^2 + y^2 ]
+[z = x^2 + y^2]
 What it means
 lowest at center
 go away → height increases
 Contours
-[ x^2 + y^2 = c ]
+[x^2 + y^2 = c]
 👉 circles
 Key difference from hill
 ￼
@@ -64,12 +64,12 @@ Real feeling
 ￼
 ￼
 Equation (simple model)
-[ z = 5 - x^2 ]
+[z = 5 - x^2]
 What it means
 high along a line
 falls on both sides
 Contours
-[ x^2 = 5 - c ]
+[x^2 = 5 - c]
 👉 stretched / elongated lines
 How to identify
 contours not circular
@@ -85,12 +85,12 @@ Real feeling
 ￼
 ￼
 Equation (simple)
-[ z = x^2 ]
+[z = x^2]
 What it means
 lowest along a line
 rises on both sides
 Contours
-[ x^2 = c ]
+[x^2 = c]
 👉 channel-like shapes
 How to identify
 contours bend like V-shape
@@ -104,14 +104,14 @@ Real feeling
 ￼
 ￼
 Equation
-[ z = x^2 - y^2 ]
+[z = x^2 - y^2]
 What it means
 along x → goes UP
 along y → goes DOWN
 👉 mixed behavior
 
 Contours
-[ x^2 - y^2 = c ]
+[x^2 - y^2 = c]
 
 Cases
 (c > 0)
@@ -135,11 +135,11 @@ Real feeling
 📘 8. 3D → 2D CONVERSION (MOST IMPORTANT)
 Step
 Start with surface:
-[ z = f(x,y) ]
+[z = f(x,y)]
 Fix height:
-[ z = c ]
+[z = c]
 Get contour:
-[ f(x,y) = c ]
+[f(x,y) = c]
 
 Example
 ￼

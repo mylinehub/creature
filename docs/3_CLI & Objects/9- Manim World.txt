@@ -12,7 +12,7 @@ why names and meanings seem not to match
 
 1. First: Manim has its own world, not your screen pixels
 When you open a scene, Manim imagines a math-like stage.
-Think of the screen as a rectangle. Manim places an invisible coordinate system on top of it.
+Think of the screen as a rectangle.Manim places an invisible coordinate system on top of it.
 Like this:
                 top
                  ↑
@@ -41,7 +41,7 @@ sizes:
   frame_height: 8.0
 This means:
 The visible Manim world is 8 units tall.
-Not 8 pixels. Not 8 cm. Just 8 Manim units.
+Not 8 pixels.Not 8 cm.Just 8 Manim units.
 
 Imagine the screen vertically divided like this
 If total visible height = 8.0, then center is 0.
@@ -86,7 +86,7 @@ If total height were 10, 100, or 1, all spacing rules would feel different.
 8.0 is just a chosen default scale that makes:
 text sizes
 geometry sizes
-movement distances feel reasonable.
+movement distancesfeel reasonable.
 So:
 frame_height is the scale of the visible Manim world.
 
@@ -144,7 +144,7 @@ Two major blocks on screen:
 title block
 diagram block
 with clear separation.
-This is not “tiny spacing” anymore. This is “keep these things clearly apart.”
+This is not “tiny spacing” anymore.This is “keep these things clearly apart.”
 
 7. Why not just always write numbers directly?
 You could write:
@@ -213,7 +213,7 @@ label.next_to(dot)
 That means:
 place label near dot
 But how near?
-Not touching. Not random. The default gap used is this config value.
+Not touching.Not random.The default gap used is this config value.
 
 Visual
 Without buffer:
@@ -422,11 +422,11 @@ main name does not match
 This is because YAML keys are often labels for behavior, not “descriptions in plain sentence form.”
 Examples:
 frame_height
-does not mean “pixel height” It means “height of visible Manim coordinate frame”
+does not mean “pixel height”It means “height of visible Manim coordinate frame”
 small_buff
-does not mean “something visual by itself” It means “small buffer spacing value”
+does not mean “something visual by itself”It means “small buffer spacing value”
 grab
-does not mean “actual object named grab” It means “interaction action called grab”
+does not mean “actual object named grab”It means “interaction action called grab”
 So the keys are short developer-oriented names.
 
 20. Final intuitive summary for this whole part

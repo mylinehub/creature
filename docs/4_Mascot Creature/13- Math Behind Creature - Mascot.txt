@@ -45,7 +45,7 @@ how do we keep it inside the eye?
 how do we keep face parts balanced?
 how do we place nose below eyes and mouth below nose?
 This is about allowed positions and limits.
-So this file is not only about shape. It is also about legal motion and legal placement.
+So this file is not only about shape.It is also about legal motion and legal placement.
 
 3. First build the body frame in math language
 You said you already understand body and face a bit, so I’ll do this part clearly but compactly.
@@ -66,7 +66,7 @@ H/2 = 2.1
 So the body’s rectangular reference box is:
 x ∈ [-1.8, 1.8]
 y ∈ [-2.1, 2.1]
-This does not mean the M-body is a simple rectangle. It means the rectangle is a reference frame.
+This does not mean the M-body is a simple rectangle.It means the rectangle is a reference frame.
 That is very important.
 A reference frame is the invisible box inside which we design the body and face.
 
@@ -75,7 +75,7 @@ The file uses ratios like:
 BODY_FACE_ZONE_TOP_RATIO = 0.24
 BODY_FACE_ZONE_HEIGHT_RATIO = 0.22
 These are fractions of body height.
-That means the face is not placed by arbitrary hardcoded Y values. It is placed relative to body size.
+That means the face is not placed by arbitrary hardcoded Y values.It is placed relative to body size.
 This is good design.
 4.1 Face top
 Top of body is:
@@ -202,7 +202,7 @@ And this is where proper constraint math begins.
 Before ellipse, do circle first. This is easier and gives intuition.
 Suppose eye were a circle of radius R.
 Suppose pupil were a circle of radius r.
-Eye center = C Pupil center = P
+Eye center = CPupil center = P
 For the pupil to remain completely inside the eye, the distance between centers must satisfy:
 ||P - C|| + r <= R
 Rearrange:
@@ -259,7 +259,7 @@ is usually the correct design choice.
 
 16. Now do the correct case: pupil inside an elliptical eye
 This is the real version.
-Eye is not a circle. Eye is an ellipse.
+Eye is not a circle.Eye is an ellipse.
 So the simple circular rule:
 ||P - C|| <= R - r
 is only an approximation now.
@@ -369,7 +369,7 @@ So larger pupil causes two things at once:
 pupil visually becomes bigger
 pupil motion freedom shrinks
 This is a very important coupling.
-So PUPIL_RADIUS is not only a size parameter. It is also a motion parameter.
+So PUPIL_RADIUS is not only a size parameter.It is also a motion parameter.
 That is why size math and constraint math are tied together.
 
 24. What if EYE_WIDTH changes?
