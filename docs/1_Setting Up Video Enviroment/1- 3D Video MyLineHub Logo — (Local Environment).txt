@@ -15,6 +15,9 @@ If not installed, install from official site.
 2. Install system dependencies
 brew install python@3.10 ffmpeg pkg-config cairo
 brew install portaudio
+brew install flac libsndfile
+
+ln -s /opt/homebrew/opt/flac/lib/libFLAC.14.dylib /opt/homebrew/opt/flac/lib/libFLAC.12.dylib
 
 These are required for:
 Python runtime

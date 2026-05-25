@@ -1,3 +1,5 @@
+# File: mathlab_creature/creature/controllers/camera_controller.py
+
 """
 mathlab_creature/creature/controllers/camera_controller.py
 
@@ -15,14 +17,18 @@ Core Responsibilities
 - smoothing
 - procedural camera motion
 
-Design Goals
-------------
-- production-ready
-- cinematic quality
-- movement-safe
-- future 3D-ready
-- reusable
-- scene-director friendly
+IMPORTANT:
+This version is FIXED for ManimGL v1.7.2
+
+Previous issue:
+----------------
+MovingCameraScene does NOT exist in installed manimgl package.
+
+This file now:
+- removes incompatible imports
+- works with current ManimGL
+- keeps architecture intact
+- keeps cinematic system intact
 """
 
 from __future__ import annotations
@@ -32,9 +38,7 @@ from enum import Enum
 
 import numpy as np
 
-from manimlib import (
-    MovingCameraScene,
-)
+from manimlib import Scene
 
 from mathlab_creature.core.transforms import (
     vec3,
@@ -56,9 +60,6 @@ from mathlab_creature.creature.rigs.body_rig import (
 # =========================================================
 
 class CameraMode(str, Enum):
-    """
-    Camera operating modes.
-    """
 
     STATIC = "static"
 
@@ -79,9 +80,6 @@ class CameraMode(str, Enum):
 
 @dataclass
 class CameraControllerConfig:
-    """
-    Tunable cinematic camera settings.
-    """
 
     follow_smoothing: float = 6.0
 
@@ -117,19 +115,11 @@ class CameraControllerConfig:
 class CameraController:
     """
     Production-grade cinematic camera system.
-
-    Features:
-    - creature follow
-    - orbiting
-    - smooth zoom
-    - cinematic drift
-    - predictive movement
-    - shot framing
     """
 
     def __init__(
         self,
-        scene: MovingCameraScene,
+        scene: Scene,
         body_rig: BodyRig,
         config: CameraControllerConfig | None = None,
     ):
@@ -194,9 +184,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Main camera update loop.
-        """
 
         self.cinematic_time += delta_time
 
@@ -205,21 +192,25 @@ class CameraController:
         # -------------------------------------------------
 
         if self.mode == CameraMode.FOLLOW:
+
             self._update_follow(
                 delta_time
             )
 
         elif self.mode == CameraMode.ORBIT:
+
             self._update_orbit(
                 delta_time
             )
 
         elif self.mode == CameraMode.LOOK_AT:
+
             self._update_look_at(
                 delta_time
             )
 
         elif self.mode == CameraMode.CINEMATIC:
+
             self._update_cinematic(
                 delta_time
             )
@@ -243,9 +234,6 @@ class CameraController:
     # =====================================================
 
     def follow_creature(self):
-        """
-        Enable creature follow mode.
-        """
 
         self.mode = CameraMode.FOLLOW
 
@@ -253,9 +241,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Smooth creature tracking.
-        """
 
         creature_position = (
             self.body_rig.current_position
@@ -297,9 +282,6 @@ class CameraController:
         self,
         radius: float | None = None,
     ):
-        """
-        Enable orbit mode.
-        """
 
         self.mode = CameraMode.ORBIT
 
@@ -310,9 +292,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Cinematic orbit camera.
-        """
 
         self.orbit_angle += (
             delta_time
@@ -358,9 +337,6 @@ class CameraController:
         self,
         world_position,
     ):
-        """
-        Lock camera onto target.
-        """
 
         self.look_target = np.array(
             world_position,
@@ -373,9 +349,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Smooth target framing.
-        """
 
         self.target_position = (
             self.look_target
@@ -393,9 +366,6 @@ class CameraController:
     # =====================================================
 
     def cinematic_mode(self):
-        """
-        Enable cinematic drifting.
-        """
 
         self.mode = CameraMode.CINEMATIC
 
@@ -403,9 +373,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Procedural cinematic framing.
-        """
 
         creature_position = (
             self.body_rig.current_position
@@ -452,9 +419,6 @@ class CameraController:
         self,
         zoom_value: float,
     ):
-        """
-        Set target zoom.
-        """
 
         self.target_zoom = clamp(
             zoom_value,
@@ -466,6 +430,7 @@ class CameraController:
         self,
         amount: float = 0.1,
     ):
+
         self.set_zoom(
             self.target_zoom - amount
         )
@@ -474,6 +439,7 @@ class CameraController:
         self,
         amount: float = 0.1,
     ):
+
         self.set_zoom(
             self.target_zoom + amount
         )
@@ -482,9 +448,6 @@ class CameraController:
         self,
         delta_time: float,
     ):
-        """
-        Smooth cinematic zoom.
-        """
 
         self.current_zoom = damp(
             self.current_zoom,
@@ -499,14 +462,38 @@ class CameraController:
 
     def _apply_camera(self):
         """
-        Push transforms into Manim camera.
+        Push transforms into ManimGL camera.
         """
 
+        # -------------------------------------------------
+        # SAFETY
+        # -------------------------------------------------
+
+        if not hasattr(
+            self.scene,
+            "camera",
+        ):
+            return
+
+        if not hasattr(
+            self.scene.camera,
+            "frame",
+        ):
+            return
+
         frame = self.scene.camera.frame
+
+        # -------------------------------------------------
+        # POSITION
+        # -------------------------------------------------
 
         frame.move_to(
             self.current_position
         )
+
+        # -------------------------------------------------
+        # ZOOM
+        # -------------------------------------------------
 
         frame.set_width(
             14 * self.current_zoom
@@ -517,12 +504,15 @@ class CameraController:
     # =====================================================
 
     def wide_shot(self):
+
         self.set_zoom(1.8)
 
     def medium_shot(self):
+
         self.set_zoom(1.0)
 
     def close_up(self):
+
         self.set_zoom(0.55)
 
     # =====================================================
@@ -530,9 +520,11 @@ class CameraController:
     # =====================================================
 
     def lock_camera(self):
+
         self.mode = CameraMode.LOCKED
 
     def unlock_camera(self):
+
         self.mode = CameraMode.FOLLOW
 
     # =====================================================
@@ -540,12 +532,15 @@ class CameraController:
     # =====================================================
 
     def get_mode(self):
+
         return self.mode
 
     def get_zoom(self):
+
         return self.current_zoom
 
     def get_position(self):
+
         return np.array(
             self.current_position
         )
@@ -555,9 +550,6 @@ class CameraController:
     # =====================================================
 
     def reset(self):
-        """
-        Reset camera controller.
-        """
 
         self.current_position = vec3()
 
@@ -580,18 +572,41 @@ class CameraController:
     # =====================================================
 
     def debug_print(self):
-        print("========= CAMERA CONTROLLER =========")
-        print("Mode:", self.mode)
-        print("Position:", self.current_position)
-        print("Zoom:", self.current_zoom)
-        print("Orbit Angle:", self.orbit_angle)
-        print("=====================================")
+
+        print(
+            "========= CAMERA CONTROLLER ========="
+        )
+
+        print(
+            "Mode:",
+            self.mode,
+        )
+
+        print(
+            "Position:",
+            self.current_position,
+        )
+
+        print(
+            "Zoom:",
+            self.current_zoom,
+        )
+
+        print(
+            "Orbit Angle:",
+            self.orbit_angle,
+        )
+
+        print(
+            "====================================="
+        )
 
     # =====================================================
     # REPRESENTATION
     # =====================================================
 
     def __repr__(self):
+
         return (
             f"CameraController("
             f"mode='{self.mode}', "
@@ -605,7 +620,7 @@ class CameraController:
 # =========================================================
 
 def build_camera_controller(
-    scene: MovingCameraScene,
+    scene: Scene,
     body_rig: BodyRig,
     config: CameraControllerConfig | None = None,
 ) -> CameraController:

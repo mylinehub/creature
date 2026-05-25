@@ -616,6 +616,74 @@ class BodyRig(VGroup):
         else:
             self.hide_creature()
 
+    # ADD THIS ENTIRE BLOCK INSIDE class BodyRig
+    # Place it BELOW rotate_towards(...)
+    # inside:
+    # mathlab_creature/creature/rigs/body_rig.py
+
+
+    # =====================================================
+    # ROTATE TO COMPATIBILITY
+    # =====================================================
+
+    def rotate_to(
+        self,
+        target_angle: float,
+        delta_time: float = 0.016,
+    ):
+        """
+        Compatibility alias.
+
+        Older controller/action systems call:
+
+            rotate_to(...)
+
+        while newer systems use:
+
+            rotate_towards(...)
+
+        This safely bridges both APIs.
+        """
+
+        self.rotate_towards(
+            target_angle,
+            delta_time,
+        )
+
+
+    # =====================================================
+    # DIRECT ROTATION
+    # =====================================================
+
+    def set_rotation(
+        self,
+        angle: float,
+    ):
+        """
+        Directly set body rotation.
+        """
+
+        self.current_rotation = angle
+
+        self.rotate(
+            angle,
+            about_point=self.root_anchor,
+        )
+
+
+    # =====================================================
+    # CURRENT ROTATION
+    # =====================================================
+
+    def get_rotation(
+        self,
+    ):
+        """
+        Return current creature rotation.
+        """
+
+        return self.current_rotation
+        
     # =====================================================
     # TELEPORT
     # =====================================================

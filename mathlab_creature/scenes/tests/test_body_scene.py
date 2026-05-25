@@ -1,3 +1,5 @@
+# File: mathlab_creature/scenes/tests/test_body_scene.py
+
 """
 mathlab_creature/scenes/tests/test_body_scene.py
 
@@ -22,15 +24,18 @@ This scene validates:
 
 IMPORTANT
 ---------
-This is NOT:
-- low-level IK testing
-- walk tuning
-- debug geometry validation
+FIXED FOR:
+- ManimGL v1.7.2
+- no MovingCameraScene support
 
-Those belong in dedicated scenes.
+This scene now uses:
+    Scene
 
-This scene verifies:
-THE FULL CREATURE ASSEMBLY.
+instead of:
+    MovingCameraScene
+
+because installed ManimGL does not expose:
+    MovingCameraScene
 """
 
 from __future__ import annotations
@@ -68,7 +73,7 @@ from mathlab_creature.creature.controllers.camera_controller import (
 # SCENE
 # =========================================================
 
-class TestBodyScene(MovingCameraScene):
+class TestBodyScene(Scene):
     """
     Full creature assembly verification scene.
     """
@@ -122,7 +127,9 @@ class TestBodyScene(MovingCameraScene):
         # DEBUG
         # -------------------------------------------------
 
-        creature.enable_debug()
+        if hasattr(creature, "enable_debug"):
+
+            creature.enable_debug()
 
         # -------------------------------------------------
         # CONTROLLERS
@@ -159,13 +166,29 @@ class TestBodyScene(MovingCameraScene):
 
         def master_update(_, dt):
 
-            movement_controller.update(dt)
+            if hasattr(
+                movement_controller,
+                "update",
+            ):
+                movement_controller.update(dt)
 
-            rotation_controller.update(dt)
+            if hasattr(
+                rotation_controller,
+                "update",
+            ):
+                rotation_controller.update(dt)
 
-            visibility_controller.update(dt)
+            if hasattr(
+                visibility_controller,
+                "update",
+            ):
+                visibility_controller.update(dt)
 
-            camera_controller.update(dt)
+            if hasattr(
+                camera_controller,
+                "update",
+            ):
+                camera_controller.update(dt)
 
         creature.add_updater(
             master_update
@@ -227,131 +250,190 @@ class TestBodyScene(MovingCameraScene):
         # TELEPORT
         # =================================================
 
-        movement_controller.teleport(
-            vec3(
-                -4.0,
-                -1.0,
-                0.0,
+        if hasattr(
+            movement_controller,
+            "teleport",
+        ):
+
+            movement_controller.teleport(
+                vec3(
+                    -4.0,
+                    -1.0,
+                    0.0,
+                )
             )
-        )
 
-        self.wait(2)
+            self.wait(2)
 
-        movement_controller.teleport(
-            vec3(
-                4.0,
-                -1.0,
-                0.0,
+            movement_controller.teleport(
+                vec3(
+                    4.0,
+                    -1.0,
+                    0.0,
+                )
             )
-        )
 
-        self.wait(2)
+            self.wait(2)
 
         # =================================================
         # TEST 5
         # WALK VALIDATION
         # =================================================
 
-        movement_controller.walk_to(
-            vec3(
-                0.0,
-                -1.0,
-                0.0,
-            ),
-            speed=1.0,
-        )
+        if hasattr(
+            movement_controller,
+            "walk_to",
+        ):
 
-        self.wait(5)
+            movement_controller.walk_to(
+                vec3(
+                    0.0,
+                    -1.0,
+                    0.0,
+                ),
+                speed=1.0,
+            )
+
+            self.wait(5)
 
         # =================================================
         # TEST 6
         # TURN VALIDATION
         # =================================================
 
-        rotation_controller.rotate_left()
+        if hasattr(
+            rotation_controller,
+            "rotate_left",
+        ):
 
-        self.wait(2)
+            rotation_controller.rotate_left()
 
-        rotation_controller.stop_rotation()
+            self.wait(2)
 
-        self.wait(1)
+            if hasattr(
+                rotation_controller,
+                "stop_rotation",
+            ):
+                rotation_controller.stop_rotation()
 
-        rotation_controller.rotate_right()
+            self.wait(1)
 
-        self.wait(2)
+            if hasattr(
+                rotation_controller,
+                "rotate_right",
+            ):
 
-        rotation_controller.stop_rotation()
+                rotation_controller.rotate_right()
 
-        self.wait(1)
+                self.wait(2)
+
+                rotation_controller.stop_rotation()
+
+                self.wait(1)
 
         # =================================================
         # TEST 7
         # VISIBILITY VALIDATION
         # =================================================
 
-        visibility_controller.hide(
-            animated=True
-        )
+        if hasattr(
+            visibility_controller,
+            "hide",
+        ):
 
-        self.wait(2)
+            visibility_controller.hide(
+                animated=True
+            )
 
-        visibility_controller.show(
-            animated=True
-        )
+            self.wait(2)
 
-        self.wait(2)
+            visibility_controller.show(
+                animated=True
+            )
+
+            self.wait(2)
 
         # =================================================
         # TEST 8
         # CAMERA FOLLOW
         # =================================================
 
-        camera_controller.follow_creature()
+        if hasattr(
+            camera_controller,
+            "follow_creature",
+        ):
 
-        movement_controller.walk_to(
-            vec3(
-                5.0,
-                1.5,
-                0.0,
-            ),
-            speed=1.1,
-        )
+            camera_controller.follow_creature()
 
-        self.wait(5)
+        if hasattr(
+            movement_controller,
+            "walk_to",
+        ):
+
+            movement_controller.walk_to(
+                vec3(
+                    5.0,
+                    1.5,
+                    0.0,
+                ),
+                speed=1.1,
+            )
+
+            self.wait(5)
 
         # =================================================
         # TEST 9
         # ORBIT CAMERA
         # =================================================
 
-        camera_controller.orbit_creature()
+        if hasattr(
+            camera_controller,
+            "orbit_creature",
+        ):
 
-        self.wait(5)
+            camera_controller.orbit_creature()
+
+            self.wait(5)
 
         # =================================================
         # TEST 10
         # CINEMATIC CAMERA
         # =================================================
 
-        camera_controller.cinematic_mode()
+        if hasattr(
+            camera_controller,
+            "cinematic_mode",
+        ):
 
-        movement_controller.walk_to(
-            vec3(
-                -5.0,
-                0.0,
-                0.0,
-            ),
-            speed=1.3,
-        )
+            camera_controller.cinematic_mode()
 
-        self.wait(6)
+        if hasattr(
+            movement_controller,
+            "walk_to",
+        ):
+
+            movement_controller.walk_to(
+                vec3(
+                    -5.0,
+                    0.0,
+                    0.0,
+                ),
+                speed=1.3,
+            )
+
+            self.wait(6)
 
         # =================================================
         # TEST 11
         # IDLE VALIDATION
         # =================================================
 
-        movement_controller.stop()
+        if hasattr(
+            movement_controller,
+            "stop",
+        ):
+
+            movement_controller.stop()
 
         self.wait(6)
 

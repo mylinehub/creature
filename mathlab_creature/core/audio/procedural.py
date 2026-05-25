@@ -1,38 +1,5 @@
 # File: mathlab_creature/core/audio/procedural.py
 
-"""
-Procedural Audio Generators
-mathlab-mylinehub-creature
-
-Purpose:
-- procedural sound synthesis
-- expressive mascot motion audio
-- soft cinematic educational sound design
-- reusable action sound generators
-- lightweight runtime synthesis
-- future-ready sound layering system
-
-Sound Design Goals:
-- alive but not annoying
-- soft and expressive
-- subtle Pixar-style support
-- educational rhythm
-- minimal and elegant
-- never overpower visuals
-
-IMPORTANT:
-This module should ONLY:
-- generate procedural sounds
-- synthesize motion audio
-- trigger short-lived audio events
-
-DO NOT:
-- boot pyo server
-- manage audio lifecycle
-- manage scene timing
-- directly control animation flow
-"""
-
 from __future__ import annotations
 
 import random
@@ -51,19 +18,8 @@ from mathlab_creature.core.audio.audio_config import (
     LOOK_VOLUME,
     TURN_VOLUME,
     WALK_BASE_FREQUENCY,
-    WALK_PITCH_VARIATION,
-    WALK_VOLUME_VARIATION,
-    BLINK_BASE_FREQUENCY,
-    BLINK_NOISE_AMOUNT,
     HOP_BASE_FREQUENCY,
     HOP_LANDING_FREQUENCY,
-    WAVE_SWISH_FREQUENCY,
-    WAVE_NOISE_AMOUNT,
-    POINT_CLICK_FREQUENCY,
-    LOOK_SWEEP_FREQUENCY,
-    TURN_SWEEP_FREQUENCY,
-    DEFAULT_ATTACK,
-    DEFAULT_RELEASE,
 )
 
 from mathlab_creature.core.audio.audio_server import (
@@ -73,14 +29,10 @@ from mathlab_creature.core.audio.audio_server import (
 
 logger = get_logger(__name__)
 
-
-# ============================================================
-# OPTIONAL PYO IMPORT
-# ============================================================
-
 PYO_AVAILABLE = False
 
 try:
+
     from pyo import (
         Fader,
         Sine,
@@ -88,26 +40,29 @@ try:
         ButLP,
         Pan,
         Adsr,
+        CallAfter,
+        Compress,
     )
 
     PYO_AVAILABLE = True
 
 except Exception as exc:
+
     logger.warning(
         "Pyo procedural audio unavailable. Reason: %s",
         exc,
     )
 
 
+_ACTIVE_AUDIO_OBJECTS: List = []
+
+
 # ============================================================
-# INTERNAL HELPERS
+# HELPERS
 # ============================================================
 
 
 def _audio_ready() -> bool:
-    """
-    Ensures audio system is available and booted.
-    """
 
     if not AUDIO_ENABLED:
         return False
@@ -123,24 +78,54 @@ def _audio_ready() -> bool:
     return server is not None
 
 
-def _random_pan() -> float:
-    """
-    Small stereo randomness for life-like feel.
-    """
+def _retain_audio(
+    objects: List,
+    duration: float,
+):
 
-    return random.uniform(0.35, 0.65)
+    _ACTIVE_AUDIO_OBJECTS.extend(objects)
+
+    def _cleanup():
+
+        for obj in objects:
+
+            try:
+
+                if obj in _ACTIVE_AUDIO_OBJECTS:
+                    _ACTIVE_AUDIO_OBJECTS.remove(obj)
+
+            except Exception:
+                pass
+
+    try:
+        CallAfter(_cleanup, duration)
+
+    except Exception:
+        pass
 
 
 def _safe_out(audio_object):
-    """
-    Safely outputs audio object.
-    """
 
     try:
         audio_object.out()
 
     except Exception as exc:
-        logger.debug("Audio output failed: %s", exc)
+
+        logger.debug(
+            "Audio output failed: %s",
+            exc,
+        )
+
+
+def _compress(signal):
+
+    return Compress(
+        signal,
+        thresh=-18,
+        ratio=4,
+        risetime=0.005,
+        falltime=0.10,
+    )
 
 
 # ============================================================
@@ -152,55 +137,66 @@ def play_walk_step(
     volume: float = WALK_VOLUME,
     frequency: float = WALK_BASE_FREQUENCY,
 ) -> List:
-    """
-    Soft mascot footstep sound.
-
-    Design:
-    - soft low sine
-    - tiny transient
-    - slight pitch randomness
-    - soft envelope
-    """
 
     if not _audio_ready():
         return []
 
-    pitch = frequency + random.uniform(
-        -WALK_PITCH_VARIATION,
-        WALK_PITCH_VARIATION,
-    )
+    amp = volume * 60.0 * MASTER_VOLUME
 
-    amp = volume + random.uniform(
-        -WALK_VOLUME_VARIATION,
-        WALK_VOLUME_VARIATION,
-    )
-
-    env = Fader(
-        fadein=0.002,
-        fadeout=0.08,
-        dur=0.12,
-        mul=amp * MASTER_VOLUME,
+    env = Adsr(
+        attack=0.018,
+        decay=0.12,
+        sustain=0.62,
+        release=0.42,
+        dur=0.90,
+        mul=amp,
     ).play()
 
     body = Sine(
-        freq=pitch,
-        mul=env * 0.8,
+        freq=[
+            frequency,
+            frequency * 1.25,
+            frequency * 1.8,
+        ],
+        mul=env * 0.95,
     )
 
-    transient_noise = ButLP(
-        Noise(mul=env * 0.08),
-        freq=450,
+    sub = Sine(
+        freq=frequency * 0.5,
+        mul=env * 0.35,
+    )
+
+    texture = ButLP(
+        Noise(
+            mul=env * 0.0015,
+        ),
+        freq=80,
+    )
+
+    signal = _compress(
+        body + sub + texture
     )
 
     stereo = Pan(
-        body + transient_noise,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, body, transient_noise, stereo]
+    objects = [
+        env,
+        body,
+        sub,
+        texture,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.0)
+
+    return objects
 
 
 # ============================================================
@@ -211,44 +207,47 @@ def play_walk_step(
 def play_blink_sound(
     volume: float = BLINK_VOLUME,
 ) -> List:
-    """
-    Tiny cute blink sound.
-
-    Design:
-    - tiny airy transient
-    - subtle high sine
-    - extremely lightweight
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 45.0 * MASTER_VOLUME
+
     env = Fader(
-        fadein=0.001,
-        fadeout=0.03,
-        dur=0.04,
-        mul=volume * MASTER_VOLUME,
+        fadein=0.03,
+        fadeout=0.30,
+        dur=0.70,
+        mul=amp,
     ).play()
 
     tone = Sine(
-        freq=BLINK_BASE_FREQUENCY + random.uniform(-40, 40),
-        mul=env * 0.12,
+        freq=[
+            260,
+            420,
+        ],
+        mul=env * 0.72,
     )
 
-    noise = ButLP(
-        Noise(mul=env * BLINK_NOISE_AMOUNT),
-        freq=3000,
-    )
+    signal = _compress(tone)
 
     stereo = Pan(
-        tone + noise,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, tone, noise, stereo]
+    objects = [
+        env,
+        tone,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=1.8)
+
+    return objects
 
 
 # ============================================================
@@ -259,46 +258,60 @@ def play_blink_sound(
 def play_wave_sound(
     volume: float = WAVE_VOLUME,
 ) -> List:
-    """
-    Soft hand wave whoosh.
-
-    Design:
-    - airy movement
-    - soft filtered noise
-    - light tonal support
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 40.0 * MASTER_VOLUME
+
     env = Adsr(
-        attack=0.01,
-        decay=0.03,
-        sustain=0.2,
-        release=0.12,
-        dur=0.22,
-        mul=volume * MASTER_VOLUME,
+        attack=0.08,
+        decay=0.18,
+        sustain=0.55,
+        release=0.55,
+        dur=1.10,
+        mul=amp,
     ).play()
 
-    whoosh = ButLP(
-        Noise(mul=env * WAVE_NOISE_AMOUNT),
-        freq=WAVE_SWISH_FREQUENCY,
+    body = Sine(
+        freq=[
+            120,
+            180,
+            260,
+        ],
+        mul=env * 0.82,
     )
 
-    shimmer = Sine(
-        freq=900 + random.uniform(-50, 50),
-        mul=env * 0.05,
+    air = ButLP(
+        Noise(
+            mul=env * 0.001,
+        ),
+        freq=60,
+    )
+
+    signal = _compress(
+        body + air
     )
 
     stereo = Pan(
-        whoosh + shimmer,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, whoosh, shimmer, stereo]
+    objects = [
+        env,
+        body,
+        air,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.2)
+
+    return objects
 
 
 # ============================================================
@@ -309,49 +322,58 @@ def play_wave_sound(
 def play_hop_sound(
     volume: float = HOP_VOLUME,
 ) -> List:
-    """
-    Soft springy hop sound.
-
-    Design:
-    - upward playful tone
-    - soft landing body
-    - subtle cartoon elasticity
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 40.0 * MASTER_VOLUME
+
     env = Adsr(
-        attack=0.005,
-        decay=0.04,
-        sustain=0.3,
-        release=0.15,
-        dur=0.28,
-        mul=volume * MASTER_VOLUME,
+        attack=0.03,
+        decay=0.12,
+        sustain=0.70,
+        release=0.65,
+        dur=1.20,
+        mul=amp,
     ).play()
 
     spring = Sine(
         freq=[
             HOP_BASE_FREQUENCY,
-            HOP_BASE_FREQUENCY * 1.5,
+            HOP_BASE_FREQUENCY * 1.3,
+            HOP_BASE_FREQUENCY * 2.0,
         ],
-        mul=env * 0.18,
+        mul=env * 0.92,
     )
 
     landing = Sine(
         freq=HOP_LANDING_FREQUENCY,
-        mul=env * 0.12,
+        mul=env * 0.42,
+    )
+
+    signal = _compress(
+        spring + landing
     )
 
     stereo = Pan(
-        spring + landing,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, spring, landing, stereo]
+    objects = [
+        env,
+        spring,
+        landing,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.4)
+
+    return objects
 
 
 # ============================================================
@@ -362,39 +384,48 @@ def play_hop_sound(
 def play_point_sound(
     volume: float = POINT_VOLUME,
 ) -> List:
-    """
-    Educational cue / point sound.
-
-    Design:
-    - tiny click
-    - subtle focus tone
-    - attention guidance
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 70.0 * MASTER_VOLUME
+
     env = Fader(
-        fadein=0.001,
-        fadeout=0.06,
-        dur=0.08,
-        mul=volume * MASTER_VOLUME,
+        fadein=0.03,
+        fadeout=0.40,
+        dur=1.00,
+        mul=amp,
     ).play()
 
     click = Sine(
-        freq=POINT_CLICK_FREQUENCY,
-        mul=env * 0.15,
+        freq=[
+            180,
+            260,
+            360,
+        ],
+        mul=env * 1.00,
     )
 
+    signal = _compress(click)
+
     stereo = Pan(
-        click,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, click, stereo]
+    objects = [
+        env,
+        click,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.4)
+
+    return objects
 
 
 # ============================================================
@@ -405,38 +436,47 @@ def play_point_sound(
 def play_look_sound(
     volume: float = LOOK_VOLUME,
 ) -> List:
-    """
-    Tiny focus movement sound.
-
-    Design:
-    - gentle sweep
-    - subtle movement cue
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 36.0 * MASTER_VOLUME
+
     env = Fader(
-        fadein=0.002,
-        fadeout=0.04,
-        dur=0.06,
-        mul=volume * MASTER_VOLUME,
+        fadein=0.04,
+        fadeout=0.30,
+        dur=0.90,
+        mul=amp,
     ).play()
 
     sweep = Sine(
-        freq=LOOK_SWEEP_FREQUENCY + random.uniform(-25, 25),
-        mul=env * 0.08,
+        freq=[
+            140,
+            220,
+        ],
+        mul=env * 0.72,
     )
 
+    signal = _compress(sweep)
+
     stereo = Pan(
-        sweep,
+        signal,
         outs=2,
-        pan=_random_pan(),
+        pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, sweep, stereo]
+    objects = [
+        env,
+        sweep,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.0)
+
+    return objects
 
 
 # ============================================================
@@ -447,85 +487,110 @@ def play_look_sound(
 def play_turn_sound(
     volume: float = TURN_VOLUME,
 ) -> List:
-    """
-    Directional swipe sound.
-
-    Design:
-    - soft turning sweep
-    - lightweight movement support
-    """
 
     if not _audio_ready():
         return []
 
+    amp = volume * 40.0 * MASTER_VOLUME
+
     env = Adsr(
-        attack=0.01,
-        decay=0.04,
-        sustain=0.15,
-        release=0.08,
-        dur=0.16,
-        mul=volume * MASTER_VOLUME,
+        attack=0.08,
+        decay=0.16,
+        sustain=0.55,
+        release=0.50,
+        dur=1.10,
+        mul=amp,
     ).play()
 
     sweep = Sine(
-        freq=TURN_SWEEP_FREQUENCY + random.uniform(-40, 40),
-        mul=env * 0.10,
+        freq=[
+            120,
+            180,
+            260,
+        ],
+        mul=env * 0.82,
     )
 
-    noise = ButLP(
-        Noise(mul=env * 0.03),
-        freq=1200,
+    air = ButLP(
+        Noise(
+            mul=env * 0.001,
+        ),
+        freq=80,
     )
 
-    stereo = Pan(
-        sweep + noise,
-        outs=2,
-        pan=_random_pan(),
-    )
-
-    _safe_out(stereo)
-
-    return [env, sweep, noise, stereo]
-
-
-# ============================================================
-# GENERIC UI SOUND
-# ============================================================
-
-
-def play_ui_confirm_sound() -> List:
-    """
-    Generic UI confirmation sound.
-    """
-
-    if not _audio_ready():
-        return []
-
-    env = Fader(
-        fadein=0.001,
-        fadeout=0.08,
-        dur=0.10,
-        mul=0.15 * MASTER_VOLUME,
-    ).play()
-
-    tone = Sine(
-        freq=[660, 880],
-        mul=env * 0.08,
+    signal = _compress(
+        sweep + air
     )
 
     stereo = Pan(
-        tone,
+        signal,
         outs=2,
         pan=0.5,
     )
 
     _safe_out(stereo)
 
-    return [env, tone, stereo]
+    objects = [
+        env,
+        sweep,
+        air,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.3)
+
+    return objects
 
 
 # ============================================================
-# MODULE READY
+# UI SOUND
 # ============================================================
 
-logger.debug("procedural audio module initialized.")
+
+def play_ui_confirm_sound() -> List:
+
+    if not _audio_ready():
+        return []
+
+    env = Fader(
+        fadein=0.03,
+        fadeout=0.32,
+        dur=1.00,
+        mul=3.0 * MASTER_VOLUME,
+    ).play()
+
+    tone = Sine(
+        freq=[
+            220,
+            340,
+            520,
+        ],
+        mul=env * 0.72,
+    )
+
+    signal = _compress(tone)
+
+    stereo = Pan(
+        signal,
+        outs=2,
+        pan=0.5,
+    )
+
+    _safe_out(stereo)
+
+    objects = [
+        env,
+        tone,
+        signal,
+        stereo,
+    ]
+
+    _retain_audio(objects, duration=2.4)
+
+    return objects
+
+
+logger.debug(
+    "procedural audio module initialized."
+)

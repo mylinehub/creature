@@ -88,7 +88,7 @@ def boot_audio_server(
     sample_rate: int = 44100,
     buffer_size: int = 512,
     duplex: int = 0,
-    audio_backend: Optional[str] = None,
+    audio_backend: str = "portaudio",
 ) -> Optional["Server"]:
     """
     Boots the global singleton pyo server.
@@ -144,15 +144,31 @@ def boot_audio_server(
         try:
             logger.info("Booting pyo audio server...")
 
+            logger.info(
+                "Audio config | sr=%s | buffer=%s | duplex=%s | backend=%s",
+                sample_rate,
+                buffer_size,
+                duplex,
+                audio_backend,
+            )
+
+            # IMPORTANT:
+            # audio backend MUST be a string.
+            # None causes:
+            # TypeError: argument 5 must be str, not None
+
             server = Server(
                 sr=sample_rate,
+                nchnls=2,
                 buffersize=buffer_size,
                 duplex=duplex,
                 audio=audio_backend,
-                nchnls=2,
             )
 
+            logger.info("Booting pyo server instance...")
             server.boot()
+
+            logger.info("Starting pyo audio processing...")
             server.start()
 
             _audio_server = server

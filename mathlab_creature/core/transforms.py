@@ -1,4 +1,4 @@
-```python
+
 """
 mathlab_creature/core/transforms.py
 
@@ -411,4 +411,3 @@ def create_root_transform(
     name: str = "creature_root",
 ) -> RootTransformNode:
     return RootTransformNode(name=name)
-```
