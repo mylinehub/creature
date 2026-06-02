@@ -1,52 +1,51 @@
 """
-mathlab_creature/core/input_controller.py
+Input and command routing system for mathlab-mylinehub-creature.
 
-Production-grade input + command routing system
-for creature movement and interaction.
+This module handles reusable input state for creature movement and interaction.
 
-Core Responsibilities
----------------------
+Core responsibilities:
 - keyboard input state
 - arrow key movement
-- ctrl/shift modifiers
-- action states
+- ctrl / shift / alt modifiers
+- action state
 - command routing
 - future controller expansion
-- reusable movement commands
+- future AI-input support
+- future network-input support
 
-Design Goals
-------------
-- engine-safe
-- reusable
-- deterministic
-- controller-friendly
-- future multiplayer-ready
-- future AI-input-ready
+Architecture rule:
+- input_controller.py does not move Manim objects directly
+- input_controller.py does not move creature parts directly
+- input_controller.py produces command/state data only
+- movement_controller.py later decides how CreatureRoot moves
+- audio is not handled here; audio can be triggered later by actions
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
-from typing import Callable, Dict, Optional
+from typing import Optional
 
 import numpy as np
 
+from mathlab_creature.core.geometry import normalize
+from mathlab_creature.core.geometry import zero_vector
 
-# =========================================================
-# VECTOR HELPERS
-# =========================================================
+
+# ============================================================
+# Type aliases
+# ============================================================
 
 Vector3 = np.ndarray
+CommandHandler = Callable[..., object]
 
 
-def vec3(x=0.0, y=0.0, z=0.0) -> Vector3:
-    return np.array([x, y, z], dtype=float)
-
-
-# =========================================================
-# INPUT ENUMS
-# =========================================================
+# ============================================================
+# Input enums
+# ============================================================
 
 class InputAction(str, Enum):
     """
@@ -76,9 +75,9 @@ class MovementState(str, Enum):
     JUMPING = "jumping"
 
 
-# =========================================================
-# INPUT STATE
-# =========================================================
+# ============================================================
+# Input state
+# ============================================================
 
 @dataclass
 class ModifierState:
@@ -98,7 +97,7 @@ class InputState:
     """
 
     move_vector: Vector3 = field(
-        default_factory=lambda: vec3()
+        default_factory=zero_vector,
     )
 
     rotation_direction: float = 0.0
@@ -107,27 +106,21 @@ class InputState:
     is_rotating: bool = False
     is_jumping: bool = False
 
-    movement_state: MovementState = (
-        MovementState.IDLE
-    )
-
-    active_action: InputAction = (
-        InputAction.IDLE
-    )
+    movement_state: MovementState = MovementState.IDLE
+    active_action: InputAction = InputAction.IDLE
 
     modifiers: ModifierState = field(
-        default_factory=ModifierState
+        default_factory=ModifierState,
     )
 
 
-# =========================================================
-# COMMAND ROUTER
-# =========================================================
+# ============================================================
+# Command router
+# ============================================================
 
 class CommandRouter:
     """
-    Routes high-level commands
-    to registered handlers.
+    Routes high-level commands to registered handlers.
 
     This allows:
     - keyboard control
@@ -135,21 +128,43 @@ class CommandRouter:
     - network control
     - scripted control
 
-    using SAME command layer.
+    using the same command layer.
     """
 
-    def __init__(self):
-        self.handlers: Dict[
-            InputAction,
-            Callable
-        ] = {}
+    def __init__(self) -> None:
+        self.handlers: dict[InputAction, CommandHandler] = {}
 
     def register(
         self,
         action: InputAction,
-        handler: Callable,
+        handler: CommandHandler,
     ) -> None:
+        """
+        Register a command handler for an action.
+        """
+        if not isinstance(action, InputAction):
+            raise TypeError(
+                f"action must be InputAction, got {type(action).__name__}"
+            )
+
+        if not callable(handler):
+            raise TypeError(
+                "handler must be callable"
+            )
+
         self.handlers[action] = handler
+
+    def unregister(
+        self,
+        action: InputAction,
+    ) -> None:
+        """
+        Remove a command handler.
+        """
+        self.handlers.pop(
+            action,
+            None,
+        )
 
     def execute(
         self,
@@ -157,17 +172,38 @@ class CommandRouter:
         *args,
         **kwargs,
     ):
+        """
+        Execute handler for action if registered.
+        """
         handler = self.handlers.get(action)
 
         if handler is None:
             return None
 
-        return handler(*args, **kwargs)
+        return handler(
+            *args,
+            **kwargs,
+        )
+
+    def has_handler(
+        self,
+        action: InputAction,
+    ) -> bool:
+        """
+        Return True if action has a registered handler.
+        """
+        return action in self.handlers
+
+    def clear(self) -> None:
+        """
+        Remove all registered handlers.
+        """
+        self.handlers.clear()
 
 
-# =========================================================
-# INPUT CONTROLLER
-# =========================================================
+# ============================================================
+# Input controller
+# ============================================================
 
 class InputController:
     """
@@ -179,13 +215,11 @@ class InputController:
     - modifiers
     - command dispatch
     - action state
+
+    It does not directly move the creature.
     """
 
-    # -----------------------------------------------------
-    # KEY MAPPING
-    # -----------------------------------------------------
-
-    DEFAULT_KEYMAP = {
+    DEFAULT_KEYMAP: dict[str, InputAction] = {
         "UP": InputAction.WALK_FORWARD,
         "DOWN": InputAction.WALK_BACKWARD,
         "LEFT": InputAction.ROTATE_LEFT,
@@ -196,89 +230,153 @@ class InputController:
         "G": InputAction.TOGGLE_JOINTS,
     }
 
-    def __init__(self):
-        self.input_state = InputState()
+    MODIFIER_KEYS: set[str] = {
+        "SHIFT",
+        "CTRL",
+        "ALT",
+    }
 
+    def __init__(self) -> None:
+        self.input_state = InputState()
         self.command_router = CommandRouter()
 
         self.keymap = dict(self.DEFAULT_KEYMAP)
-
-        self.pressed_keys = set()
+        self.pressed_keys: set[str] = set()
 
         self.walk_speed = 1.0
         self.run_multiplier = 2.0
         self.precision_multiplier = 0.35
-
         self.rotation_speed = 1.0
 
-    # =====================================================
-    # KEYBOARD INPUT
-    # =====================================================
+    # ========================================================
+    # Keyboard input
+    # ========================================================
 
-    def press_key(self, key: str) -> None:
+    def press_key(
+        self,
+        key: str,
+    ) -> None:
         """
         Register key press.
         """
+        normalized_key = self._normalize_key(key)
 
-        key = key.upper()
+        self.pressed_keys.add(normalized_key)
 
-        self.pressed_keys.add(key)
-
-        self._update_modifier_state(key)
-
+        self._update_modifier_state(normalized_key)
         self._rebuild_input_state()
 
-    def release_key(self, key: str) -> None:
+    def release_key(
+        self,
+        key: str,
+    ) -> None:
         """
         Register key release.
         """
+        normalized_key = self._normalize_key(key)
 
-        key = key.upper()
+        self.pressed_keys.discard(normalized_key)
 
-        if key in self.pressed_keys:
-            self.pressed_keys.remove(key)
-
-        self._update_modifier_release(key)
-
+        self._update_modifier_release(normalized_key)
         self._rebuild_input_state()
 
-    # =====================================================
-    # MODIFIERS
-    # =====================================================
+    def set_pressed_keys(
+        self,
+        keys: set[str],
+    ) -> None:
+        """
+        Replace current pressed-key set.
 
-    def _update_modifier_state(self, key: str):
+        Useful for scripted or AI-driven input.
+        """
+        self.pressed_keys = {
+            self._normalize_key(key)
+            for key in keys
+        }
+
+        self._sync_modifier_state_from_pressed_keys()
+        self._rebuild_input_state()
+
+    def clear_pressed_keys(self) -> None:
+        """
+        Clear all pressed keys.
+        """
+        self.pressed_keys.clear()
+        self._sync_modifier_state_from_pressed_keys()
+        self._rebuild_input_state()
+
+    # ========================================================
+    # Modifier handling
+    # ========================================================
+
+    def _normalize_key(
+        self,
+        key: str,
+    ) -> str:
+        """
+        Normalize key string.
+        """
+        if not isinstance(key, str):
+            raise TypeError(
+                f"key must be str, got {type(key).__name__}"
+            )
+
+        cleaned = key.strip().upper()
+
+        if not cleaned:
+            raise ValueError(
+                "key must not be empty"
+            )
+
+        return cleaned
+
+    def _update_modifier_state(
+        self,
+        key: str,
+    ) -> None:
+        """
+        Mark modifier as pressed.
+        """
         if key == "SHIFT":
             self.input_state.modifiers.shift = True
-
         elif key == "CTRL":
             self.input_state.modifiers.ctrl = True
-
         elif key == "ALT":
             self.input_state.modifiers.alt = True
 
-    def _update_modifier_release(self, key: str):
+    def _update_modifier_release(
+        self,
+        key: str,
+    ) -> None:
+        """
+        Mark modifier as released.
+        """
         if key == "SHIFT":
             self.input_state.modifiers.shift = False
-
         elif key == "CTRL":
             self.input_state.modifiers.ctrl = False
-
         elif key == "ALT":
             self.input_state.modifiers.alt = False
 
-    # =====================================================
-    # INPUT STATE BUILDING
-    # =====================================================
+    def _sync_modifier_state_from_pressed_keys(self) -> None:
+        """
+        Recompute modifier state from current pressed keys.
+        """
+        self.input_state.modifiers.shift = "SHIFT" in self.pressed_keys
+        self.input_state.modifiers.ctrl = "CTRL" in self.pressed_keys
+        self.input_state.modifiers.alt = "ALT" in self.pressed_keys
 
-    def _rebuild_input_state(self):
+    # ========================================================
+    # Input state building
+    # ========================================================
+
+    def _rebuild_input_state(self) -> None:
         """
         Recompute movement/action state.
         """
-
         state = self.input_state
 
-        state.move_vector = vec3()
-
+        state.move_vector = zero_vector()
         state.rotation_direction = 0.0
 
         state.is_moving = False
@@ -288,94 +386,62 @@ class InputController:
         state.active_action = InputAction.IDLE
         state.movement_state = MovementState.IDLE
 
-        # -------------------------------------------------
-        # FORWARD / BACKWARD
-        # -------------------------------------------------
-
         if "UP" in self.pressed_keys:
-            state.move_vector += vec3(0.0, 1.0, 0.0)
-
-            state.is_moving = True
-            state.active_action = (
-                InputAction.WALK_FORWARD
+            state.move_vector += np.array(
+                [0.0, 1.0, 0.0],
+                dtype=float,
             )
+            state.is_moving = True
+            state.active_action = InputAction.WALK_FORWARD
 
         if "DOWN" in self.pressed_keys:
-            state.move_vector += vec3(0.0, -1.0, 0.0)
-
-            state.is_moving = True
-            state.active_action = (
-                InputAction.WALK_BACKWARD
+            state.move_vector += np.array(
+                [0.0, -1.0, 0.0],
+                dtype=float,
             )
-
-        # -------------------------------------------------
-        # ROTATION
-        # -------------------------------------------------
+            state.is_moving = True
+            state.active_action = InputAction.WALK_BACKWARD
 
         if "LEFT" in self.pressed_keys:
             state.rotation_direction = 1.0
-
             state.is_rotating = True
 
             if not state.is_moving:
-                state.active_action = (
-                    InputAction.ROTATE_LEFT
-                )
+                state.active_action = InputAction.ROTATE_LEFT
 
         if "RIGHT" in self.pressed_keys:
             state.rotation_direction = -1.0
-
             state.is_rotating = True
 
             if not state.is_moving:
-                state.active_action = (
-                    InputAction.ROTATE_RIGHT
-                )
-
-        # -------------------------------------------------
-        # JUMP
-        # -------------------------------------------------
+                state.active_action = InputAction.ROTATE_RIGHT
 
         if "SPACE" in self.pressed_keys:
             state.is_jumping = True
-
-            state.active_action = (
-                InputAction.JUMP
-            )
-
-            state.movement_state = (
-                MovementState.JUMPING
-            )
-
-        # -------------------------------------------------
-        # WALK / RUN
-        # -------------------------------------------------
+            state.active_action = InputAction.JUMP
+            state.movement_state = MovementState.JUMPING
 
         elif state.is_moving:
             if state.modifiers.shift:
-                state.movement_state = (
-                    MovementState.RUNNING
-                )
-
+                state.movement_state = MovementState.RUNNING
             else:
-                state.movement_state = (
-                    MovementState.WALKING
-                )
+                state.movement_state = MovementState.WALKING
 
         elif state.is_rotating:
-            state.movement_state = (
-                MovementState.ROTATING
-            )
+            state.movement_state = MovementState.ROTATING
 
-    # =====================================================
-    # SPEED HELPERS
-    # =====================================================
+    # ========================================================
+    # Speed helpers
+    # ========================================================
 
     def get_speed_multiplier(self) -> float:
         """
-        Speed modifier handling.
-        """
+        Return movement speed multiplier from modifiers.
 
+        shift -> run
+        ctrl  -> precision
+        normal -> 1.0
+        """
         modifiers = self.input_state.modifiers
 
         if modifiers.shift:
@@ -387,48 +453,76 @@ class InputController:
         return 1.0
 
     def get_current_move_speed(self) -> float:
+        """
+        Return final movement speed.
+        """
         return (
             self.walk_speed
             * self.get_speed_multiplier()
         )
 
-    # =====================================================
-    # MOVEMENT VECTORS
-    # =====================================================
+    def get_current_rotation_speed(self) -> float:
+        """
+        Return final rotation speed.
+        """
+        return (
+            self.rotation_speed
+            * self.get_speed_multiplier()
+        )
+
+    # ========================================================
+    # Movement vectors
+    # ========================================================
 
     def get_movement_vector(self) -> Vector3:
         """
-        Normalized movement direction.
+        Return normalized movement direction.
         """
-
         vector = self.input_state.move_vector
 
-        magnitude = np.linalg.norm(vector)
+        if np.linalg.norm(vector) <= 1e-8:
+            return zero_vector()
 
-        if magnitude <= 1e-8:
-            return vec3()
-
-        return vector / magnitude
+        return normalize(vector)
 
     def get_scaled_movement_vector(self) -> Vector3:
         """
-        Speed-scaled movement vector.
+        Return speed-scaled movement vector.
         """
-
         return (
             self.get_movement_vector()
             * self.get_current_move_speed()
         )
 
-    # =====================================================
-    # COMMAND ROUTING
-    # =====================================================
+    def get_rotation_direction(self) -> float:
+        """
+        Return rotation direction.
+
+        left  -> +1
+        right -> -1
+        none  -> 0
+        """
+        return float(
+            self.input_state.rotation_direction
+        )
+
+    def get_scaled_rotation_amount(self) -> float:
+        """
+        Return speed-scaled rotation value.
+        """
+        return (
+            self.get_rotation_direction()
+            * self.get_current_rotation_speed()
+        )
+
+    # ========================================================
+    # Command routing
+    # ========================================================
 
     def route_current_action(self):
         """
         Execute current action handler.
         """
-
         action = self.input_state.active_action
 
         return self.command_router.execute(
@@ -436,80 +530,179 @@ class InputController:
             self.input_state,
         )
 
-    # =====================================================
-    # ACTION HELPERS
-    # =====================================================
+    def register_action_handler(
+        self,
+        action: InputAction,
+        handler: CommandHandler,
+    ) -> None:
+        """
+        Register action handler.
+        """
+        self.command_router.register(
+            action,
+            handler,
+        )
+
+    def unregister_action_handler(
+        self,
+        action: InputAction,
+    ) -> None:
+        """
+        Remove action handler.
+        """
+        self.command_router.unregister(
+            action,
+        )
+
+    # ========================================================
+    # Action helpers
+    # ========================================================
+
+    def has_input(self) -> bool:
+        """
+        Return True if any meaningful key is currently pressed.
+        """
+        return bool(
+            self.pressed_keys
+        )
+
+    def current_action_name(self) -> str:
+        """
+        Return current action as plain string.
+        """
+        return self.input_state.active_action.value
+
+    def current_movement_state_name(self) -> str:
+        """
+        Return movement state as plain string.
+        """
+        return self.input_state.movement_state.value
 
     def is_idle(self) -> bool:
-        return (
-            self.input_state.movement_state
-            == MovementState.IDLE
-        )
+        return self.input_state.movement_state == MovementState.IDLE
 
     def is_walking(self) -> bool:
-        return (
-            self.input_state.movement_state
-            == MovementState.WALKING
-        )
+        return self.input_state.movement_state == MovementState.WALKING
 
     def is_running(self) -> bool:
-        return (
-            self.input_state.movement_state
-            == MovementState.RUNNING
-        )
+        return self.input_state.movement_state == MovementState.RUNNING
 
     def is_rotating(self) -> bool:
-        return (
-            self.input_state.movement_state
-            == MovementState.ROTATING
-        )
+        return self.input_state.movement_state == MovementState.ROTATING
 
     def is_jumping(self) -> bool:
+        return self.input_state.movement_state == MovementState.JUMPING
+
+    def is_turning_left(self) -> bool:
         return (
-            self.input_state.movement_state
-            == MovementState.JUMPING
+            self.input_state.is_rotating
+            and self.input_state.rotation_direction > 0
         )
 
-    # =====================================================
-    # CONFIGURATION
-    # =====================================================
+    def is_turning_right(self) -> bool:
+        return (
+            self.input_state.is_rotating
+            and self.input_state.rotation_direction < 0
+        )
 
-    def set_walk_speed(self, speed: float):
-        self.walk_speed = max(0.0, speed)
+    def is_debug_toggle_requested(self) -> bool:
+        return "T" in self.pressed_keys
 
-    def set_run_multiplier(self, multiplier: float):
-        self.run_multiplier = max(1.0, multiplier)
+    def is_joint_toggle_requested(self) -> bool:
+        return "G" in self.pressed_keys
+
+    def is_reset_requested(self) -> bool:
+        return "R" in self.pressed_keys
+
+    # ========================================================
+    # Configuration
+    # ========================================================
+
+    def set_walk_speed(
+        self,
+        speed: float,
+    ) -> None:
+        """
+        Set base walk speed.
+        """
+        self.walk_speed = max(
+            0.0,
+            float(speed),
+        )
+
+    def set_run_multiplier(
+        self,
+        multiplier: float,
+    ) -> None:
+        """
+        Set shift/run multiplier.
+        """
+        self.run_multiplier = max(
+            1.0,
+            float(multiplier),
+        )
 
     def set_precision_multiplier(
         self,
         multiplier: float,
-    ):
+    ) -> None:
+        """
+        Set ctrl/precision multiplier.
+        """
         self.precision_multiplier = max(
             0.01,
-            multiplier,
+            float(multiplier),
         )
 
-    def set_rotation_speed(self, speed: float):
-        self.rotation_speed = max(0.0, speed)
+    def set_rotation_speed(
+        self,
+        speed: float,
+    ) -> None:
+        """
+        Set base rotation speed.
+        """
+        self.rotation_speed = max(
+            0.0,
+            float(speed),
+        )
 
-    # =====================================================
-    # RESET
-    # =====================================================
+    # ========================================================
+    # State access
+    # ========================================================
 
-    def reset(self):
+    def get_state(self) -> InputState:
+        """
+        Return current input state.
+        """
+        return self.input_state
+
+    def copy_pressed_keys(self) -> set[str]:
+        """
+        Return copy of pressed keys.
+        """
+        return set(
+            self.pressed_keys
+        )
+
+    # ========================================================
+    # Reset
+    # ========================================================
+
+    def reset(self) -> None:
         """
         Reset entire input state.
         """
-
         self.pressed_keys.clear()
-
         self.input_state = InputState()
 
-    # =====================================================
-    # DEBUG
-    # =====================================================
+    # ========================================================
+    # Debug
+    # ========================================================
 
-    def debug_print(self):
+    def debug_print(self) -> None:
+        """
+        Print input state for debugging.
+        """
         state = self.input_state
 
         print("========== INPUT DEBUG ==========")
@@ -520,3 +713,19 @@ class InputController:
         print("Rotation:", state.rotation_direction)
         print("Modifiers:", state.modifiers)
         print("=================================")
+
+
+# ============================================================
+# Export control
+# ============================================================
+
+__all__ = [
+    "Vector3",
+    "CommandHandler",
+    "InputAction",
+    "MovementState",
+    "ModifierState",
+    "InputState",
+    "CommandRouter",
+    "InputController",
+]

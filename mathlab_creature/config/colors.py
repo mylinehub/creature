@@ -36,11 +36,16 @@ def _validate_hex_color(name: str, value: str) -> str:
     - invalid hex characters
     """
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string, got {type(value).__name__}")
+        raise TypeError(
+            f"{name} must be a string, got {type(value).__name__}"
+        )
+
     if not _HEX_COLOR_RE.match(value):
         raise ValueError(
-            f"{name} must be a 7-character hex color like '#FFFFFF', got {value!r}"
+            f"{name} must be a 7-character hex color like '#FFFFFF', "
+            f"got {value!r}"
         )
+
     return value.upper()
 
 
@@ -67,17 +72,25 @@ GRAY_900 = _validate_hex_color("GRAY_900", "#171717")
 # Brand / project accents
 # ============================================================
 
-# Primary brand-inspired dark for the M body.
-MYLINEHUB_M_BODY = _validate_hex_color("MYLINEHUB_M_BODY", "#111111")
+MYLINEHUB_M_BODY = _validate_hex_color(
+    "MYLINEHUB_M_BODY",
+    "#111111",
+)
 
-# Slightly softer dark used for outlines or secondary dark elements.
-MYLINEHUB_DARK = _validate_hex_color("MYLINEHUB_DARK", "#1F1F1F")
+MYLINEHUB_DARK = _validate_hex_color(
+    "MYLINEHUB_DARK",
+    "#1F1F1F",
+)
 
-# Bright accent for highlights, UI-like cards, emphasis, or motion cues.
-MYLINEHUB_ACCENT_BLUE = _validate_hex_color("MYLINEHUB_ACCENT_BLUE", "#2563EB")
+MYLINEHUB_ACCENT_BLUE = _validate_hex_color(
+    "MYLINEHUB_ACCENT_BLUE",
+    "#2563EB",
+)
 
-# Optional warm accent for expressive accessory details.
-MYLINEHUB_ACCENT_GOLD = _validate_hex_color("MYLINEHUB_ACCENT_GOLD", "#D4A017")
+MYLINEHUB_ACCENT_GOLD = _validate_hex_color(
+    "MYLINEHUB_ACCENT_GOLD",
+    "#D4A017",
+)
 
 
 # ============================================================
@@ -87,7 +100,10 @@ MYLINEHUB_ACCENT_GOLD = _validate_hex_color("MYLINEHUB_ACCENT_GOLD", "#D4A017")
 CREATURE_BODY_FILL = MYLINEHUB_M_BODY
 CREATURE_BODY_STROKE = BLACK
 
-CREATURE_HAT_FILL = _validate_hex_color("CREATURE_HAT_FILL", "#2B2B2B")
+CREATURE_HAT_FILL = _validate_hex_color(
+    "CREATURE_HAT_FILL",
+    "#2B2B2B",
+)
 CREATURE_HAT_STROKE = BLACK
 
 CREATURE_ARM_COLOR = BLACK
@@ -105,11 +121,23 @@ EYE_STROKE = BLACK
 PUPIL_FILL = BLACK
 PUPIL_HIGHLIGHT = WHITE
 
-NOSE_FILL = _validate_hex_color("NOSE_FILL", "#222222")
+NOSE_FILL = _validate_hex_color(
+    "NOSE_FILL",
+    "#222222",
+)
 NOSE_STROKE = BLACK
 
 MOUTH_COLOR = BLACK
 FACE_GUIDE_COLOR = GRAY_300
+
+
+# ============================================================
+# Skeleton / hierarchy colors
+# ============================================================
+
+SKELETON_COLOR = GRAY_500
+BODY_CORE_COLOR = MYLINEHUB_ACCENT_BLUE
+JOINT_COLOR = MYLINEHUB_ACCENT_GOLD
 
 
 # ============================================================
@@ -120,36 +148,37 @@ BACKGROUND_LIGHT = WHITE
 BACKGROUND_SOFT = GRAY_100
 GRID_LIGHT = GRAY_200
 GUIDE_COLOR = GRAY_400
-ANCHOR_COLOR = _validate_hex_color("ANCHOR_COLOR", "#EF4444")
-
-
-# ============================================================
-# Prop colors
-# ============================================================
-
-POINTER_STICK_COLOR = _validate_hex_color("POINTER_STICK_COLOR", "#8B5A2B")
-MATH_BOARD_FILL = _validate_hex_color("MATH_BOARD_FILL", "#0F172A")
-MATH_BOARD_STROKE = BLACK
-FORMULA_CARD_FILL = WHITE
-FORMULA_CARD_STROKE = BLACK
-AXIS_COLOR = BLACK
+ANCHOR_COLOR = _validate_hex_color(
+    "ANCHOR_COLOR",
+    "#EF4444",
+)
 
 
 # ============================================================
 # Logging / debug visual colors
 # ============================================================
 
-DEBUG_SUCCESS = _validate_hex_color("DEBUG_SUCCESS", "#16A34A")
-DEBUG_WARNING = _validate_hex_color("DEBUG_WARNING", "#F59E0B")
-DEBUG_ERROR = _validate_hex_color("DEBUG_ERROR", "#DC2626")
-DEBUG_INFO = _validate_hex_color("DEBUG_INFO", "#2563EB")
+DEBUG_SUCCESS = _validate_hex_color(
+    "DEBUG_SUCCESS",
+    "#16A34A",
+)
+DEBUG_WARNING = _validate_hex_color(
+    "DEBUG_WARNING",
+    "#F59E0B",
+)
+DEBUG_ERROR = _validate_hex_color(
+    "DEBUG_ERROR",
+    "#DC2626",
+)
+DEBUG_INFO = _validate_hex_color(
+    "DEBUG_INFO",
+    "#2563EB",
+)
 
 
 # ============================================================
 # Semantic aliases
 # ============================================================
-# These make later code more readable. Example:
-# use OUTLINE_COLOR instead of remembering which dark/black constant to pick.
 
 OUTLINE_COLOR = BLACK
 PRIMARY_TEXT_COLOR = BLACK
@@ -164,7 +193,7 @@ SCENE_GUIDE_COLOR = GUIDE_COLOR
 
 
 # ============================================================
-# Grouped palettes (optional convenience)
+# Grouped palettes
 # ============================================================
 
 NEUTRAL_PALETTE: Dict[str, str] = {
@@ -187,6 +216,30 @@ BRAND_PALETTE: Dict[str, str] = {
     "MYLINEHUB_DARK": MYLINEHUB_DARK,
     "MYLINEHUB_ACCENT_BLUE": MYLINEHUB_ACCENT_BLUE,
     "MYLINEHUB_ACCENT_GOLD": MYLINEHUB_ACCENT_GOLD,
+}
+
+CREATURE_PALETTE: Dict[str, str] = {
+    "CREATURE_BODY_FILL": CREATURE_BODY_FILL,
+    "CREATURE_BODY_STROKE": CREATURE_BODY_STROKE,
+    "CREATURE_HAT_FILL": CREATURE_HAT_FILL,
+    "CREATURE_HAT_STROKE": CREATURE_HAT_STROKE,
+    "CREATURE_ARM_COLOR": CREATURE_ARM_COLOR,
+    "CREATURE_HAND_COLOR": CREATURE_HAND_COLOR,
+    "CREATURE_LEG_COLOR": CREATURE_LEG_COLOR,
+    "CREATURE_FOOT_COLOR": CREATURE_FOOT_COLOR,
+    "EYE_WHITE": EYE_WHITE,
+    "EYE_STROKE": EYE_STROKE,
+    "PUPIL_FILL": PUPIL_FILL,
+    "PUPIL_HIGHLIGHT": PUPIL_HIGHLIGHT,
+    "NOSE_FILL": NOSE_FILL,
+    "NOSE_STROKE": NOSE_STROKE,
+    "MOUTH_COLOR": MOUTH_COLOR,
+}
+
+HIERARCHY_PALETTE: Dict[str, str] = {
+    "SKELETON_COLOR": SKELETON_COLOR,
+    "BODY_CORE_COLOR": BODY_CORE_COLOR,
+    "JOINT_COLOR": JOINT_COLOR,
 }
 
 DEBUG_PALETTE: Dict[str, str] = {
@@ -234,17 +287,14 @@ __all__ = [
     "NOSE_STROKE",
     "MOUTH_COLOR",
     "FACE_GUIDE_COLOR",
+    "SKELETON_COLOR",
+    "BODY_CORE_COLOR",
+    "JOINT_COLOR",
     "BACKGROUND_LIGHT",
     "BACKGROUND_SOFT",
     "GRID_LIGHT",
     "GUIDE_COLOR",
     "ANCHOR_COLOR",
-    "POINTER_STICK_COLOR",
-    "MATH_BOARD_FILL",
-    "MATH_BOARD_STROKE",
-    "FORMULA_CARD_FILL",
-    "FORMULA_CARD_STROKE",
-    "AXIS_COLOR",
     "DEBUG_SUCCESS",
     "DEBUG_WARNING",
     "DEBUG_ERROR",
@@ -259,5 +309,7 @@ __all__ = [
     "SCENE_GUIDE_COLOR",
     "NEUTRAL_PALETTE",
     "BRAND_PALETTE",
+    "CREATURE_PALETTE",
+    "HIERARCHY_PALETTE",
     "DEBUG_PALETTE",
 ]

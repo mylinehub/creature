@@ -1,326 +1,507 @@
 # 🎬 mathlab-mylinehub-creature
 
-A modular **ManimGL-based animation system** to build and control a reusable MYLINEHUB mascot — designed for **education, storytelling, and telecom/AI training visuals**.
+A reusable ManimGL creature system for educational animation, storytelling, mathematics visualization, telecom demonstrations, and AI teaching content.
+
+The purpose of this project is not to build a generic animation framework.
+
+The purpose is to build:
+
+- one connected creature
+- one reusable architecture
+- one public API
+- one believable movement system
+- one reusable audio system
+- one educational mascot platform
 
 ---
 
-# 🧠 What this project really is
+# Philosophy
 
-This is **not just a character**.
+The creature must behave like:
 
-It is a **layered animation architecture** where:
-
-```
-Parts → Rig → Pose → Action → Scene
-```
-
-Each layer adds more intelligence and reuse.
-
----
-
-# 🎯 Core Goals
-
-* Build a **reusable animated mascot system**
-* Keep **clean separation of concerns**
-* Enable **fast scene creation**
-* Make animations **consistent + scalable**
-* Support **teaching visuals (math, telecom, AI)**
-
----
-
-# 🧩 System Architecture
-
-## 🔷 High-level flow
-
-```
-[ config ] → [ parts ] → [ rigs ] → [ poses ] → [ actions ] → [ scenes ]
+```text
+ONE ROOT
+ONE BODY
+ONE SKELETON
+ONE ORGANISM
 ```
 
-| Layer   | Responsibility                |
-| ------- | ----------------------------- |
-| config  | Colors, sizes, defaults       |
-| parts   | Raw shapes (eyes, body, hat…) |
-| rigs    | Attach + control parts        |
-| poses   | Static expressions            |
-| actions | Motion (blink, wave, walk)    |
-| scenes  | Final animation output        |
+Not:
 
----
-
-# 🏗️ Folder Structure (Explained)
-
-```
-config/
-core/
-creature/
-props/
-scenes/
-docs/
-assets/
+```text
+many disconnected objects
 ```
 
----
+Every body part belongs to a single hierarchy.
 
-## ⚙️ config/
+Nothing floats independently.
 
-Defines **visual rules**
+Nothing moves independently.
 
-| File        | Purpose                     |
-| ----------- | --------------------------- |
-| colors.py   | All colors used globally    |
-| sizes.py    | Dimensions & proportions    |
-| defaults.py | Default positions & scaling |
-
-👉 This ensures **no hardcoding inside parts**
+Everything is connected.
 
 ---
 
-## 🧠 core/
+# Public API
 
-Reusable low-level helpers
-
-| File        | Purpose           |
-| ----------- | ----------------- |
-| geometry.py | Shape math        |
-| anchors.py  | Alignment points  |
-| layout.py   | Position helpers  |
-| motion.py   | Animation helpers |
-| naming.py   | Consistent naming |
-
-👉 This is your **engine layer**
-
----
-
-## 🧍 creature/
-
-Main character system
-
-### 🔹 parts/
-
-Smallest visual units
-
-| Part      | Meaning           |
-| --------- | ----------------- |
-| body_m.py | M-shaped body     |
-| eyes.py   | Eye system        |
-| nose.py   | Nose              |
-| mouth.py  | Expressions       |
-| hat.py    | Identity/branding |
-| arms.py   | Movement          |
-| legs.py   | Movement          |
-
-👉 These are **dumb objects** (no intelligence)
-
----
-
-### 🔹 rigs/
-
-Control systems
-
-| Rig         | Role                    |
-| ----------- | ----------------------- |
-| face_rig.py | Controls eyes, mouth    |
-| arm_rig.py  | Controls arms           |
-| leg_rig.py  | Controls walking        |
-| body_rig.py | Whole-body coordination |
-
-👉 Rigs = **connect + control parts**
-
----
-
-### 🔹 poses/
-
-Static states
-
-| Pose             | Example  |
-| ---------------- | -------- |
-| neutral_pose.py  | Default  |
-| happy_pose.py    | Smile    |
-| thinking_pose.py | Thinking |
-| teacher_pose.py  | Teaching |
-
-👉 Pose = **"freeze frame" of character**
-
----
-
-### 🔹 actions/
-
-Time-based animations
-
-| Action          | Meaning          |
-| --------------- | ---------------- |
-| blink_action.py | Eye blink        |
-| wave_action.py  | Hand wave        |
-| walk_action.py  | Movement         |
-| point_action.py | Teaching gesture |
-
-👉 Action = **Pose + Motion over time**
-
----
-
-## 🧪 scenes/
-
-Final output
-
-### 🔹 tests/
-
-Used for development
-
-| Scene                 | Purpose         |
-| --------------------- | --------------- |
-| test_body_scene.py    | Check body      |
-| test_face_scene.py    | Check face      |
-| test_actions_scene.py | Check animation |
-
----
-
-### 🎭 character/
-
-Story-level scenes
-
-* mascot_intro_scene.py
-* mascot_wave_scene.py
-* mascot_teach_scene.py
-
-👉 These combine **multiple actions**
-
----
-
-### 📘 lessons/
-
-Educational scenes
-
-* vectors_intro_scene.py
-* matrix_intro_scene.py
-
-👉 This is where **real teaching happens**
-
----
-
-## 🧰 props/
-
-External objects
-
-| Prop             | Usage              |
-| ---------------- | ------------------ |
-| pointer_stick.py | Teaching           |
-| math_board.py    | Explanations       |
-| formula_card.py  | Visual math        |
-| axis_plane.py    | Coordinate systems |
-
----
-
-## 📂 assets/
-
-* svg → vector graphics
-* refs → design references
-
----
-
-## 📚 docs/
-
-Design thinking
-
-* project_plan.md
-* animation_notes.md
-* creature_design_notes.md
-
----
-
-# 🧬 How Everything Connects
-
-```
-body + eyes + mouth → face_rig
-face_rig + arms → body_rig
-body_rig → pose
-pose + motion → action
-action → scene
-```
-
----
-
-# 🧪 Example Build Flow
-
-### Step 1 — Create parts
+Only one import is considered public.
 
 ```python
-eyes = Eyes()
-body = BodyM()
+from mathlab_creature import build_creature
 ```
 
-### Step 2 — Attach rig
+Everything else is internal.
+
+External code should never directly import:
 
 ```python
-rig = FaceRig(eyes, mouth)
+Eyes
+Nose
+Mouth
+Arm
+Leg
+Hand
+Foot
+FaceRig
+ArmRig
+LegRig
+BodyRig
 ```
 
-### Step 3 — Apply pose
+These are implementation details.
 
-```python
-pose = HappyPose(rig)
+---
+
+# High Level Architecture
+
+The creature is organized around a connected hierarchy.
+
+```text
+CreatureRoot
+    │
+    ▼
+BodyCore
+    │
+    ▼
+Spine
+    │
+    ├── Head
+    │     ├── Eyes
+    │     ├── Nose
+    │     └── Mouth
+    │
+    ├── Left Shoulder
+    │      └── Left Arm
+    │
+    ├── Right Shoulder
+    │      └── Right Arm
+    │
+    └── Pelvis
+           ├── Left Leg
+           └── Right Leg
 ```
 
-### Step 4 — Animate
+Every object has exactly one parent.
 
-```python
-self.play(WaveAction(rig))
+Movement propagates downward.
+
+---
+
+# Audio Architecture
+
+Audio is a separate subsystem.
+
+Audio is NOT part of the creature hierarchy.
+
+```text
+Project
+├── Creature System
+└── Audio System
+```
+
+Audio may be used by:
+
+- scenes
+- actions
+- narration
+- procedural sound
+- teaching demonstrations
+
+The creature must still function without audio.
+
+Audio is optional.
+
+---
+
+# Project Structure
+
+```text
+mathlab_creature/
+
+├── api/
+├── config/
+├── core/
+│   └── audio/
+├── creature/
+└── scenes/
 ```
 
 ---
 
-# ⚡ Why this architecture matters
+# api/
 
-Without this:
+Public interface.
 
-❌ everything becomes hardcoded
-❌ animations become unmanageable
-❌ reuse becomes impossible
+```text
+creature_api.py
+```
 
-With this:
+Provides:
 
-✅ modular
-✅ scalable
-✅ production-ready
-✅ clean mental model
+```python
+build_creature()
+```
 
----
-
-# 🚀 Future Expansion
-
-* Physics-based motion
-* Lip-sync system
-* Emotion engine
-* Scene templates
-* Multi-character interaction
+This is the only supported public entry point.
 
 ---
 
-# 🧑‍💻 How to run
+# config/
+
+Visual and behavioral constants.
+
+```text
+colors.py
+sizes.py
+defaults.py
+timings.py
+logging_config.py
+```
+
+Contains:
+
+- colors
+- dimensions
+- proportions
+- timing constants
+- logging settings
+
+No hardcoded values should exist inside creature parts.
+
+---
+
+# core/
+
+Reusable low-level utilities.
+
+```text
+geometry.py
+anchors.py
+layout.py
+motion.py
+transforms.py
+kinematics.py
+debug_draw.py
+input_controller.py
+logger.py
+naming.py
+```
+
+Purpose:
+
+- geometry helpers
+- transform math
+- local/world coordinate systems
+- naming
+- debugging
+- utility functions
+
+---
+
+# core/audio/
+
+Audio subsystem.
+
+```text
+audio_config.py
+audio_server.py
+helpers.py
+procedural.py
+sound_registry.py
+timing.py
+```
+
+Purpose:
+
+- procedural sounds
+- sound effects
+- future narration
+- future voice support
+- educational audio demonstrations
+
+This subsystem remains independent from creature hierarchy.
+
+---
+
+# creature/
+
+Contains the creature implementation.
+
+Not intended for external use.
+
+---
+
+# creature/root/
+
+Contains root systems.
+
+```text
+creature_root.py
+skeleton.py
+body_core.py
+```
+
+Responsibilities:
+
+- root ownership
+- hierarchy ownership
+- center of mass
+- breathing
+- sway
+- balance
+- body coordination
+
+---
+
+# creature/parts/
+
+Contains body components.
+
+```text
+head
+eyes
+nose
+mouth
+arms
+hands
+legs
+feet
+joints
+```
+
+Body parts are NOT independent objects.
+
+They are connected pieces of a single creature.
+
+---
+
+# creature/rigs/
+
+Internal control layers.
+
+```text
+body_rig.py
+face_rig.py
+arm_rig.py
+leg_rig.py
+```
+
+Used only during creature construction and coordination.
+
+Not intended for external use.
+
+---
+
+# creature/actions/
+
+Animation behaviors.
+
+```text
+idle_action.py
+blink_action.py
+look_action.py
+walk_action.py
+step_action.py
+turn_action.py
+wave_action.py
+point_action.py
+hop_action.py
+```
+
+Actions operate on the connected creature.
+
+Actions never directly manipulate disconnected body parts.
+
+---
+
+# creature/controllers/
+
+```text
+movement_controller.py
+rotation_controller.py
+visibility_controller.py
+camera_controller.py
+```
+
+Responsibilities:
+
+- movement
+- rotation
+- visibility
+- camera coordination
+
+All global movement must originate from CreatureRoot.
+
+---
+
+# scenes/
+
+Contains example scenes.
+
+Current primary development scene:
+
+```text
+test_creature_scene.py
+```
+
+Purpose:
+
+- verify build_creature()
+- verify hierarchy
+- verify movement
+- verify actions
+- verify transforms
+
+This is the primary validation scene during development.
+
+---
+
+# Movement Rules
+
+Global movement belongs only to:
+
+```text
+CreatureRoot
+```
+
+Never:
+
+```text
+Eye
+Hand
+Leg
+Foot
+Nose
+Mouth
+```
+
+Example:
+
+Bad:
+
+```python
+eye.shift(...)
+hand.rotate(...)
+leg.move_to(...)
+```
+
+Good:
+
+```python
+creature.move(...)
+```
+
+---
+
+# Transform Rules
+
+Each object owns:
+
+```text
+Local Transform
+```
+
+relative to its parent.
+
+World position is derived from:
+
+```text
+Parent World Transform
++
+Local Transform
+```
+
+Child objects never directly control world space.
+
+---
+
+# Body Rules
+
+Eyes remain attached to head.
+
+Nose remains attached to face.
+
+Mouth remains attached to face.
+
+Hands remain attached to arms.
+
+Feet remain attached to legs.
+
+Nothing floats.
+
+Nothing detaches.
+
+Everything remains connected.
+
+---
+
+# Development Goal
+
+The creature should feel:
+
+- connected
+- grounded
+- stable
+- reusable
+- educational
+- believable
+
+Not:
+
+- over-engineered
+- disconnected
+- chaotic
+- unnecessarily complex
+
+---
+
+# Dependencies
+
+```text
+manimgl
+numpy
+pyo
+```
+
+---
+
+# Running
+
+Render the primary creature validation scene.
 
 ```bash
-manimgl scenes/tests/test_body_scene.py TestBodyScene
+manimgl scenes/tests/test_creature_scene.py TestCreatureScene
 ```
 
 ---
 
-# 🎯 Philosophy
+# Core Principle
 
-> Build once. Animate infinitely.
+```text
+ONE ROOT
+ONE BODY
+ONE SKELETON
+ONE ORGANISM
+```
 
-This system is designed so that:
-
-* one character → many scenes
-* one action → many contexts
-* one system → infinite reuse
-
----
-
-# 🔥 Final Insight
-
-This is not just animation.
-
-This is:
-
-* **visual storytelling engine**
-* **teaching system**
-* **brand identity layer**
+Everything else derives from that.

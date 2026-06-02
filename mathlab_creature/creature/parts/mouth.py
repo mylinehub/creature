@@ -1,20 +1,31 @@
 """
 Mouth construction for mathlab-mylinehub-creature.
 
-This file builds the creature's mouth as a simple expressive curve
-positioned using face anchors.
+This file builds the creature mouth.
 
-Version 1 goals:
-- keep the mouth clean and readable
-- support a neutral-friendly slight smile look
-- keep all sizing controlled by config
-- make future expression replacement easy
+Architecture rule:
+- mouth is a visual face part
+- mouth does not animate itself
+- mouth does not move independently
+- face_rig.py may later control expressions
+- body_m.py will attach mouth to the face hierarchy
+- audio is not handled here
 
-This file only builds the mouth object.
-It does not animate expressions yet.
+Connection chain:
+
+    Body
+        |
+        Face
+            |
+            Mouth
 """
 
 from __future__ import annotations
+
+from typing import Iterable
+from typing import Optional
+
+import numpy as np
 
 from manimlib import Arc
 
@@ -28,50 +39,73 @@ from mathlab_creature.config.sizes import MOUTH_WIDTH
 from mathlab_creature.config.sizes import SMILE_ARC_ANGLE
 
 from mathlab_creature.core.anchors import get_mouth_center
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import zero_point
 from mathlab_creature.core.logger import get_logger
 from mathlab_creature.core.naming import creature_part_name
+
 
 logger = get_logger(__name__)
 
 
-# ============================================================
-# Internal helpers
-# ============================================================
+Vector3 = np.ndarray
+Vec3Like = np.ndarray | Iterable[float]
 
-def _validate_numeric(name: str, value: float | int) -> float:
-    """
-    Ensure a numeric value and return it as float.
-    """
+
+def _validate_numeric(
+    name: str,
+    value: float | int,
+) -> float:
     if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
+        raise TypeError(
+            f"{name} must be numeric, got {type(value).__name__}"
+        )
+
     return float(value)
 
 
-def _validate_positive(name: str, value: float | int) -> float:
-    """
-    Ensure a positive numeric value.
-    """
+def _validate_positive(
+    name: str,
+    value: float | int,
+) -> float:
     value = _validate_numeric(name, value)
+
     if value <= 0:
-        raise ValueError(f"{name} must be > 0, got {value}")
+        raise ValueError(
+            f"{name} must be > 0, got {value}"
+        )
+
     return value
 
 
-def _validate_non_negative(name: str, value: float | int) -> float:
-    """
-    Ensure a non-negative numeric value.
-    """
+def _validate_non_negative(
+    name: str,
+    value: float | int,
+) -> float:
     value = _validate_numeric(name, value)
+
     if value < 0:
-        raise ValueError(f"{name} must be >= 0, got {value}")
+        raise ValueError(
+            f"{name} must be >= 0, got {value}"
+        )
+
     return value
 
 
-# ============================================================
-# Internal builder
-# ============================================================
+def _coerce_point3(
+    value: Optional[Vec3Like],
+    name: str = "value",
+) -> Vector3:
+    if value is None:
+        return zero_point()
 
-def _build_mouth_shape(
+    return as_vec3(
+        value,
+        name=name,
+    )
+
+
+def build_mouth_shape(
     *,
     width: float = MOUTH_WIDTH,
     height: float = MOUTH_HEIGHT,
@@ -80,78 +114,70 @@ def _build_mouth_shape(
     arc_angle: float = SMILE_ARC_ANGLE,
 ) -> Arc:
     """
-    Build the base mouth shape.
+    Build raw mouth shape.
 
-    Version 1 uses a small upward arc so the mascot feels friendly
-    even in its neutral default state.
+    Version 1 uses a friendly smile arc.
     """
-    width = _validate_positive("width", width)
-    height = _validate_positive("height", height)
-    stroke_width = _validate_non_negative("stroke_width", stroke_width)
-    arc_angle = _validate_positive("arc_angle", arc_angle)
+
+    width = _validate_positive(
+        "width",
+        width,
+    )
+
+    height = _validate_positive(
+        "height",
+        height,
+    )
+
+    stroke_width = _validate_non_negative(
+        "stroke_width",
+        stroke_width,
+    )
+
+    arc_angle = _validate_positive(
+        "arc_angle",
+        arc_angle,
+    )
 
     mouth = Arc(
         angle=arc_angle,
     )
+
     mouth.set_width(width)
     mouth.set_height(height)
-    mouth.set_stroke(stroke_color, width=stroke_width)
+
+    mouth.set_stroke(
+        stroke_color,
+        width=stroke_width,
+    )
+
+    mouth.mouth_width = width
+    mouth.mouth_height = height
+    mouth.mouth_arc_angle = arc_angle
 
     return mouth
 
 
-# ============================================================
-# Public builder
-# ============================================================
-
-def build_mouth(
-    body_center=None,
+def build_mouth_at(
+    position: Optional[Vec3Like] = None,
     *,
     width: float = MOUTH_WIDTH,
     height: float = MOUTH_HEIGHT,
     stroke_width: float = MOUTH_STROKE_WIDTH,
     stroke_color: str = MOUTH_COLOR,
     arc_angle: float = SMILE_ARC_ANGLE,
-    assign_name: bool = True,
+    mouth_name: str = "mouth",
 ) -> Arc:
     """
-    Build the creature mouth and place it using anchor helpers.
-
-    Args:
-        body_center:
-            Optional body center point. If omitted, origin-based anchors are used.
-
-        width:
-            Mouth width.
-
-        height:
-            Mouth height.
-
-        stroke_width:
-            Mouth stroke width.
-
-        stroke_color:
-            Mouth stroke color.
-
-        arc_angle:
-            Arc angle controlling smile curvature.
-
-        assign_name:
-            If True, assign a stable object name.
-
-    Returns:
-        Arc mouth object.
+    Build mouth at explicit position.
     """
-    if LOG_CREATURE_BUILD:
-        logger.info(
-            "Building mouth | width=%.3f height=%.3f stroke_width=%.3f arc_angle=%.3f",
-            width,
-            height,
-            stroke_width,
-            arc_angle,
-        )
 
-    mouth = _build_mouth_shape(
+    mouth_center = _coerce_point3(
+        position,
+        "position",
+    )
+
+    mouth = build_mouth_shape(
         width=width,
         height=height,
         stroke_width=stroke_width,
@@ -159,18 +185,19 @@ def build_mouth(
         arc_angle=arc_angle,
     )
 
-    mouth_center = get_mouth_center(body_center)
-    mouth.move_to(mouth_center)
+    mouth.move_to(
+        mouth_center,
+    )
 
-    if assign_name:
-        mouth.name = creature_part_name(MOUTH_NAME)
+    mouth.name = mouth_name
 
-    # Lightweight metadata for later expression / rig work
     mouth.mouth_center = mouth_center
     mouth.mouth_width = width
     mouth.mouth_height = height
     mouth.mouth_stroke_width = stroke_width
     mouth.mouth_arc_angle = arc_angle
+
+    mouth.is_creature_mouth = True
 
     if DEBUG_MODE:
         logger.debug(
@@ -181,7 +208,125 @@ def build_mouth(
             arc_angle,
         )
 
+    return mouth
+
+
+def build_mouth(
+    body_center: Optional[Vec3Like] = None,
+    *,
+    position: Optional[Vec3Like] = None,
+    width: float = MOUTH_WIDTH,
+    height: float = MOUTH_HEIGHT,
+    stroke_width: float = MOUTH_STROKE_WIDTH,
+    stroke_color: str = MOUTH_COLOR,
+    arc_angle: float = SMILE_ARC_ANGLE,
+) -> Arc:
+    """
+    Build creature mouth.
+
+    If position is supplied,
+    it overrides anchor placement.
+    """
+
     if LOG_CREATURE_BUILD:
-        logger.info("Mouth created successfully")
+        logger.info(
+            "Building mouth"
+        )
+
+    mouth_center = (
+        _coerce_point3(
+            position,
+            "position",
+        )
+        if position is not None
+        else get_mouth_center(
+            body_center,
+        )
+    )
+
+    mouth = build_mouth_at(
+        position=mouth_center,
+        width=width,
+        height=height,
+        stroke_width=stroke_width,
+        stroke_color=stroke_color,
+        arc_angle=arc_angle,
+        mouth_name=creature_part_name(
+            MOUTH_NAME,
+        ),
+    )
+
+    if LOG_CREATURE_BUILD:
+        logger.info(
+            "Mouth created successfully"
+        )
 
     return mouth
+
+
+def get_mouth_center_point(
+    mouth: Arc,
+) -> Vector3:
+    """
+    Return stored mouth center.
+    """
+
+    if hasattr(
+        mouth,
+        "mouth_center",
+    ):
+        return as_vec3(
+            mouth.mouth_center,
+            name="mouth.mouth_center",
+        )
+
+    return as_vec3(
+        mouth.get_center(),
+        name="mouth.get_center()",
+    )
+
+
+def set_mouth_center_metadata(
+    mouth: Arc,
+    center: Vec3Like,
+) -> None:
+    """
+    Update mouth metadata.
+
+    Does not move the object.
+    """
+
+    center_vec = as_vec3(
+        center,
+        name="center",
+    )
+
+    mouth.mouth_center = center_vec
+
+
+def set_mouth_smile_amount(
+    mouth: Arc,
+    arc_angle: float,
+) -> None:
+    """
+    Store future smile state.
+
+    Actual expression animation
+    will later be handled by face_rig.py.
+    """
+
+    mouth.mouth_arc_angle = float(
+        arc_angle,
+    )
+
+
+__all__ = [
+    "Vector3",
+    "Vec3Like",
+    "build_mouth_shape",
+    "build_mouth_at",
+    "build_mouth",
+    "get_mouth_center_point",
+    "set_mouth_center_metadata",
+    "set_mouth_smile_amount",
+]

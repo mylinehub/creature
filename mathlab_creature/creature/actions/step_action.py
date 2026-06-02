@@ -1,42 +1,26 @@
-# File: mathlab_creature/creature/actions/step_action.py
-
 """
-mathlab_creature/creature/actions/step_action.py
+Step action for mathlab-mylinehub-creature.
 
-Production-grade reusable procedural step system
-with cinematic procedural audio integration.
+This file controls a single procedural step.
 
-Core Responsibilities
----------------------
-- reusable single step
-- procedural foot arc
-- foot placement
-- step timing
-- weight shifting
-- planted/lifted transitions
-- cinematic stepping
-- procedural audio timing
-- soft educational footstep feel
+Architecture rule:
+- step_action.py does not build legs
+- step_action.py does not create joints
+- step_action.py works through LegRig
+- LegRig controls connected leg systems
+- audio is optional and safely ignored if audio modules are unavailable
 
-Design Goals
-------------
-- reusable
-- animation-safe
-- procedural-ready
-- future IK-ready
-- future AI-ready
-- cinematic-quality movement
-- soft mascot movement
-- educational motion rhythm
+Connection chain:
 
-Audio Goals
------------
-- soft
-- cartoony
-- subtle
-- expressive
-- educational mascot feel
-- not realistic heavy boots
+    StepAction
+        |
+        LegRig
+            |
+            Left Leg / Right Leg
+                |
+                Knee
+                Ankle
+                Foot
 """
 
 from __future__ import annotations
@@ -45,93 +29,53 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from mathlab_creature.core.transforms import (
-    vec3,
-)
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import zero_vector
+from mathlab_creature.core.kinematics import clamp
+from mathlab_creature.core.kinematics import smootherstep
+from mathlab_creature.core.logger import get_logger
+from mathlab_creature.creature.rigs.leg_rig import LegRig
 
-from mathlab_creature.core.kinematics import (
-    solve_leg_step_arc,
-    smootherstep,
-    clamp,
-)
-
-from mathlab_creature.core.logger import (
-    get_logger,
-)
-
-from mathlab_creature.core.audio.helpers import (
-    maybe_play_sound,
-)
-
-from mathlab_creature.core.audio.procedural import (
-    play_walk_step,
-)
-
-from mathlab_creature.creature.rigs.leg_rig import (
-    LegRig,
-)
 
 logger = get_logger(__name__)
 
 
-# =========================================================
-# CONFIG
-# =========================================================
+try:
+    from mathlab_creature.core.audio.helpers import maybe_play_sound
+    from mathlab_creature.core.audio.procedural import play_walk_step
+except Exception:
+    maybe_play_sound = None
+    play_walk_step = None
+
 
 @dataclass
 class StepActionConfig:
-    """
-    Tunable single-step settings.
-    """
-
     step_height: float = 0.32
-
     step_duration: float = 0.45
 
     stride_length: float = 0.75
 
     foot_rotation_strength: float = 0.28
-
     body_shift_strength: float = 0.06
 
     foot_lift_threshold: float = 0.52
-
     easing_strength: float = 1.0
 
-    # -----------------------------------------------------
-    # AUDIO SETTINGS
-    # -----------------------------------------------------
-
     enable_audio: bool = True
-
     step_sound_volume: float = 1.0
-
     step_sound_frequency: float = 110.0
-
     step_sound_trigger_phase: float = 0.56
 
 
-# =========================================================
-# STEP ACTION
-# =========================================================
-
 class StepAction:
     """
-    Reusable procedural single-step controller.
-
-    Features:
-    - single foot step
-    - procedural foot arc
-    - cinematic timing
-    - planted/lifted state
-    - reusable movement primitive
-    - procedural audio support
+    Single reusable procedural step.
 
     Used by:
-    - walk cycles
-    - turning
-    - balancing
-    - procedural locomotion
+    - WalkAction
+    - TurnAction
+    - HopAction
+    - Balance recovery
     """
 
     def __init__(
@@ -139,117 +83,88 @@ class StepAction:
         leg_rig: LegRig,
         config: StepActionConfig | None = None,
         with_sound: bool = True,
-    ):
+    ) -> None:
+        if not isinstance(leg_rig, LegRig):
+            raise TypeError(
+                f"leg_rig must be LegRig, got {type(leg_rig).__name__}"
+            )
+
         self.leg_rig = leg_rig
-
         self.config = config or StepActionConfig()
-
-        self.with_sound = with_sound
-
-        # -------------------------------------------------
-        # INTERNAL STATE
-        # -------------------------------------------------
+        self.with_sound = bool(with_sound)
 
         self.elapsed_time = 0.0
-
         self.progress = 0.0
 
         self.is_active = False
-
         self.is_finished = False
 
-        # -------------------------------------------------
-        # STEP DATA
-        # -------------------------------------------------
+        self.start_position = zero_vector()
+        self.target_position = zero_vector()
+        self.current_position = zero_vector()
 
-        self.start_position = vec3()
-
-        self.target_position = vec3()
-
-        self.current_position = vec3()
-
-        self.walk_direction = vec3(
-            0.0,
-            1.0,
-            0.0,
-        )
+        self.walk_direction = zero_vector()
+        self.walk_direction[1] = 1.0
 
         self.step_side = "left"
 
         self.foot_rotation = 0.0
-
-        # -------------------------------------------------
-        # AUDIO STATE
-        # -------------------------------------------------
-
         self.step_sound_triggered = False
-
-    # =====================================================
-    # START
-    # =====================================================
 
     def start(
         self,
         start_position,
         target_position,
         walk_direction,
-    ):
-        """
-        Begin procedural step.
-        """
-
-        self.start_position = np.array(
+        *,
+        side: str = "left",
+    ) -> None:
+        self.start_position = as_vec3(
             start_position,
-            dtype=float,
+            name="start_position",
         )
 
-        self.target_position = np.array(
+        self.target_position = as_vec3(
             target_position,
-            dtype=float,
+            name="target_position",
         )
 
-        self.walk_direction = np.array(
+        self.walk_direction = as_vec3(
             walk_direction,
-            dtype=float,
+            name="walk_direction",
         )
 
         magnitude = np.linalg.norm(
-            self.walk_direction
+            self.walk_direction,
         )
 
-        if magnitude > 1e-5:
-            self.walk_direction /= magnitude
+        if magnitude > 1e-8:
+            self.walk_direction = (
+                self.walk_direction / magnitude
+            )
+
+        self.step_side = (
+            str(side)
+            .strip()
+            .lower()
+        )
 
         self.elapsed_time = 0.0
-
         self.progress = 0.0
 
         self.is_active = True
-
         self.is_finished = False
 
         self.step_sound_triggered = False
 
-    # =====================================================
-    # UPDATE
-    # =====================================================
-
     def update(
         self,
         delta_time: float,
-    ):
-        """
-        Advance procedural step.
-        """
-
+    ) -> None:
         if not self.is_active:
             return
 
-        # -------------------------------------------------
-        # TIME
-        # -------------------------------------------------
-
-        self.elapsed_time += delta_time
+        self.elapsed_time += float(delta_time)
 
         raw_progress = (
             self.elapsed_time
@@ -262,166 +177,58 @@ class StepAction:
             1.0,
         )
 
-        # -------------------------------------------------
-        # EASING
-        # -------------------------------------------------
-
         smooth_progress = smootherstep(
-            self.progress
+            self.progress,
         )
-
-        # -------------------------------------------------
-        # FOOT ARC
-        # -------------------------------------------------
 
         self.current_position = (
-            solve_leg_step_arc(
-                start=self.start_position,
-                end=self.target_position,
-                step_height=self.config.step_height,
-                t=smooth_progress,
+            self.start_position
+            + (
+                self.target_position
+                - self.start_position
             )
+            * smooth_progress
         )
 
-        # -------------------------------------------------
-        # LEG IK
-        # -------------------------------------------------
-
-        self.leg_rig.solve_leg_ik(
-            self.current_position
+        self._update_leg_state(
+            smooth_progress,
         )
 
-        # -------------------------------------------------
-        # FOOT STATE
-        # -------------------------------------------------
-
-        self._update_foot_state(
-            smooth_progress
+        self._update_audio(
+            smooth_progress,
         )
-
-        # -------------------------------------------------
-        # FOOT ROTATION
-        # -------------------------------------------------
-
-        self._update_foot_rotation(
-            smooth_progress
-        )
-
-        # -------------------------------------------------
-        # BODY SHIFT
-        # -------------------------------------------------
-
-        self._update_body_shift(
-            smooth_progress
-        )
-
-        # -------------------------------------------------
-        # STEP AUDIO
-        # -------------------------------------------------
-
-        self._update_step_audio(
-            smooth_progress
-        )
-
-        # -------------------------------------------------
-        # FINISH
-        # -------------------------------------------------
 
         if self.progress >= 1.0:
             self.finish()
 
-    # =====================================================
-    # FOOT STATE
-    # =====================================================
-
-    def _update_foot_state(
+    def _update_leg_state(
         self,
         progress: float,
-    ):
+    ) -> None:
         """
-        Handle planted/lifted timing.
+        Update LegRig state.
+
+        LegRig owns:
+        - knee state
+        - ankle state
+        - foot state
         """
 
-        if (
-            progress
-            > self.config.foot_lift_threshold
-        ):
-            self.leg_rig.foot.set_lifted()
+        phase = clamp(
+            progress,
+            0.0,
+            1.0,
+        )
 
-            self.leg_rig.ankle_joint.set_lifted()
-
+        if phase > self.config.foot_lift_threshold:
+            self.leg_rig.set_feet_lifted()
         else:
-            self.leg_rig.foot.set_planted()
+            self.leg_rig.set_feet_planted()
 
-            self.leg_rig.ankle_joint.set_planted()
-
-    # =====================================================
-    # FOOT ROTATION
-    # =====================================================
-
-    def _update_foot_rotation(
+    def _update_audio(
         self,
         progress: float,
-    ):
-        """
-        Add cinematic foot articulation.
-        """
-
-        self.foot_rotation = (
-            np.sin(progress * np.pi)
-            * self.config.foot_rotation_strength
-        )
-
-        self.leg_rig.foot.set_rotation(
-            self.foot_rotation
-        )
-
-        self.leg_rig.ankle_joint.set_ankle_angle(
-            self.foot_rotation
-        )
-
-    # =====================================================
-    # BODY SHIFT
-    # =====================================================
-
-    def _update_body_shift(
-        self,
-        progress: float,
-    ):
-        """
-        Procedural balance shift.
-        """
-
-        shift = (
-            np.sin(progress * np.pi)
-            * self.config.body_shift_strength
-        )
-
-        self.leg_rig.hip_joint.shift_center_of_mass(
-            vec3(
-                shift,
-                0.0,
-                0.0,
-            )
-        )
-
-    # =====================================================
-    # STEP AUDIO
-    # =====================================================
-
-    def _update_step_audio(
-        self,
-        progress: float,
-    ):
-        """
-        Procedural step sound timing.
-
-        Goals:
-        - soft mascot rhythm
-        - educational feel
-        - subtle cinematic support
-        """
-
+    ) -> None:
         if not self.with_sound:
             return
 
@@ -429,6 +236,12 @@ class StepAction:
             return
 
         if self.step_sound_triggered:
+            return
+
+        if maybe_play_sound is None:
+            return
+
+        if play_walk_step is None:
             return
 
         if (
@@ -446,135 +259,112 @@ class StepAction:
 
         self.step_sound_triggered = True
 
-    # =====================================================
-    # FINISH
-    # =====================================================
-
-    def finish(self):
-        """
-        End procedural step.
-        """
-
+    def finish(
+        self,
+    ) -> None:
         self.is_active = False
-
         self.is_finished = True
 
-        self.leg_rig.foot.set_planted()
+        self.leg_rig.set_feet_planted()
 
-        self.leg_rig.ankle_joint.set_planted()
-
-    # =====================================================
-    # INTERRUPT
-    # =====================================================
-
-    def cancel(self):
-        """
-        Abort current step.
-        """
-
+    def cancel(
+        self,
+    ) -> None:
         self.is_active = False
-
         self.is_finished = True
 
-    # =====================================================
-    # AUDIO CONTROL
-    # =====================================================
+        self.leg_rig.set_feet_planted()
 
-    def enable_sound(self):
-        """
-        Enable procedural step audio.
-        """
-
+    def enable_sound(
+        self,
+    ) -> None:
         self.with_sound = True
 
-    def disable_sound(self):
-        """
-        Disable procedural step audio.
-        """
-
+    def disable_sound(
+        self,
+    ) -> None:
         self.with_sound = False
 
-    # =====================================================
-    # STATE
-    # =====================================================
-
-    def active(self):
-        return self.is_active
-
-    def finished(self):
-        return self.is_finished
-
-    def get_progress(self):
-        return self.progress
-
-    def get_current_position(self):
-        return np.array(
-            self.current_position
+    def active(
+        self,
+    ) -> bool:
+        return bool(
+            self.is_active,
         )
 
-    # =====================================================
-    # RESET
-    # =====================================================
+    def finished(
+        self,
+    ) -> bool:
+        return bool(
+            self.is_finished,
+        )
 
-    def reset(self):
-        """
-        Reset internal state.
-        """
+    def get_progress(
+        self,
+    ) -> float:
+        return float(
+            self.progress,
+        )
 
+    def get_current_position(
+        self,
+    ):
+        return np.array(
+            self.current_position,
+            dtype=float,
+        )
+
+    def reset(
+        self,
+    ) -> None:
         self.elapsed_time = 0.0
-
         self.progress = 0.0
 
         self.is_active = False
-
         self.is_finished = False
 
-        self.current_position = vec3()
+        self.current_position = zero_vector()
 
         self.step_sound_triggered = False
 
-    # =====================================================
-    # DEBUG
-    # =====================================================
-
-    def debug_print(self):
+    def debug_print(
+        self,
+    ) -> None:
         print("========== STEP ACTION ==========")
         print("Progress:", self.progress)
         print("Elapsed:", self.elapsed_time)
         print("Active:", self.is_active)
         print("Finished:", self.is_finished)
         print("Current Position:", self.current_position)
+        print("Step Side:", self.step_side)
         print("Sound Enabled:", self.with_sound)
         print("=================================")
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
-
-    def __repr__(self):
+    def __repr__(
+        self,
+    ) -> str:
         return (
-            f"StepAction("
+            "StepAction("
             f"progress={round(self.progress, 3)}, "
             f"active={self.is_active}"
-            f")"
+            ")"
         )
 
-
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
 
 def build_step_action(
     leg_rig: LegRig,
     config: StepActionConfig | None = None,
     with_sound: bool = True,
 ) -> StepAction:
-    """
-    Create production-grade procedural step.
-    """
-
     return StepAction(
         leg_rig=leg_rig,
         config=config,
         with_sound=with_sound,
     )
+
+
+__all__ = [
+    "StepActionConfig",
+    "StepAction",
+    "build_step_action",
+]

@@ -1,164 +1,231 @@
 """
-mathlab_creature/creature/parts/ankle_joint.py
+Ankle joint construction for mathlab-mylinehub-creature.
 
-Production-grade ankle joint system
-for articulated creature rigs.
+This file builds the ankle connector for the connected creature system.
 
-Core Responsibilities
----------------------
-- foot pivot
-- ankle rotation
-- foot attachment root
-- procedural walk support
-- balance support
-- hierarchy-safe transforms
+Architecture rule:
+- ankle joint is a connector part
+- ankle joint does not build feet
+- ankle joint does not build legs
+- legs.py will place this joint between lower leg and foot
+- feet.py provides the foot object
+- leg_rig.py / kinematics.py will calculate ankle angle later
+- ankle joint should not move independently in scene code
+- audio is not handled here; audio may be triggered later by walk/step actions
 
-Design Goals
-------------
-- production-ready
-- animation-safe
-- IK-ready
-- hierarchy-safe
-- future 3D-ready
-- procedural-motion-ready
+Connection chain:
+
+    HipJoint
+        |
+        Upper Leg
+        |
+        KneeJoint
+        |
+        Lower Leg
+        |
+        AnkleJoint
+        |
+        Foot
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
+from typing import Optional
 
 import numpy as np
 
-from manimlib import (
-    VGroup,
-    Circle,
-    Dot,
-    Arc,
-    Line,
-    Text,
-)
+from manimlib import Arc
+from manimlib import Circle
+from manimlib import Dot
+from manimlib import Line
+from manimlib import Text
+from manimlib import VGroup
 
-from manimlib.constants import (
-    GREY_B,
-    BLUE_E,
-    WHITE,
-    YELLOW,
-    GREEN,
-    RED,
-    PI,
-)
+from manimlib.constants import BLUE_E
+from manimlib.constants import GREEN
+from manimlib.constants import GREY_B
+from manimlib.constants import RED
+from manimlib.constants import WHITE
+from manimlib.constants import YELLOW
 
-from mathlab_creature.core.transforms import (
-    TransformNode,
-    create_transform_node,
-    vec3,
-)
+from mathlab_creature.config.defaults import DEBUG_MODE
+from mathlab_creature.config.defaults import LOG_CREATURE_BUILD
+from mathlab_creature.config.sizes import DEBUG_STROKE_WIDTH
+from mathlab_creature.config.sizes import JOINT_RADIUS
 
-from mathlab_creature.core.debug_draw import (
-    create_local_axes,
-)
+from mathlab_creature.core.debug_draw import create_local_axes
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import point
+from mathlab_creature.core.geometry import zero_point
+from mathlab_creature.core.logger import get_logger
+from mathlab_creature.core.naming import creature_part_name
+from mathlab_creature.core.transforms import TransformNode
+from mathlab_creature.core.transforms import create_transform_node
 
 
-# =========================================================
-# CONFIG
-# =========================================================
+logger = get_logger(__name__)
+
+
+Vector3 = np.ndarray
+Vec3Like = np.ndarray | Iterable[float]
+
 
 @dataclass
 class AnkleJointConfig:
     """
-    Tunable ankle configuration.
+    Tunable ankle joint configuration.
     """
 
-    radius: float = 0.075
+    radius: float = JOINT_RADIUS
 
-    fill_color = GREY_B
-    outline_color = WHITE
-
-    foot_direction_color = BLUE_E
+    fill_color: str = GREY_B
+    outline_color: str = WHITE
+    foot_direction_color: str = BLUE_E
+    debug_color: str = YELLOW
 
     stroke_width: float = 2.0
 
     axis_length: float = 0.35
-
     angle_arc_radius: float = 0.24
 
     show_debug_axes: bool = False
 
 
-# =========================================================
-# ANKLE JOINT
-# =========================================================
+def _validate_numeric(name: str, value: float | int) -> float:
+    if not isinstance(value, (int, float)):
+        raise TypeError(
+            f"{name} must be numeric, got {type(value).__name__}"
+        )
+    return float(value)
+
+
+def _validate_positive(name: str, value: float | int) -> float:
+    value = _validate_numeric(name, value)
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0, got {value}")
+    return value
+
+
+def _validate_non_negative(name: str, value: float | int) -> float:
+    value = _validate_numeric(name, value)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0, got {value}")
+    return value
+
+
+def _coerce_point3(
+    value: Optional[Vec3Like],
+    name: str = "value",
+) -> Vector3:
+    if value is None:
+        return zero_point()
+
+    return as_vec3(value, name=name)
+
+
+def _validated_config(config: Optional[AnkleJointConfig]) -> AnkleJointConfig:
+    config = config or AnkleJointConfig()
+
+    config.radius = _validate_positive("config.radius", config.radius)
+    config.stroke_width = _validate_non_negative(
+        "config.stroke_width",
+        config.stroke_width,
+    )
+    config.axis_length = _validate_non_negative(
+        "config.axis_length",
+        config.axis_length,
+    )
+    config.angle_arc_radius = _validate_non_negative(
+        "config.angle_arc_radius",
+        config.angle_arc_radius,
+    )
+
+    return config
+
 
 class AnkleJoint(VGroup):
     """
-    Production-grade ankle joint.
+    Local ankle connector.
 
     Responsibilities:
-    - foot pivot
-    - foot rotation
-    - ankle articulation
-    - walk support
-    - balance support
+    - visible ankle pivot
+    - local ankle angle state
+    - foot attachment anchor
+    - lower leg attachment anchor
+    - planted/lifted metadata
+    - optional debug visualization
+
+    This class does not build legs or feet.
     """
 
     def __init__(
         self,
-        config: AnkleJointConfig | None = None,
+        config: Optional[AnkleJointConfig] = None,
         name: str = "ankle_joint",
+        position: Optional[Vec3Like] = None,
+        debug_enabled: bool = False,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(**kwargs)
 
-        self.config = config or AnkleJointConfig()
+        self.config = _validated_config(config)
+        self.joint_name = str(name)
 
-        self.joint_name = name
-
-        # -------------------------------------------------
-        # TRANSFORM NODE
-        # -------------------------------------------------
+        self.current_angle = 0.0
+        self.debug_enabled = bool(debug_enabled)
+        self.is_planted = True
 
         self.transform_node = create_transform_node(
-            name=name,
+            name=self.joint_name,
             mobject=self,
         )
 
-        self.transform_node.set_center_point(
-            vec3()
-        )
+        self.transform_node.set_center_point(zero_point())
+        self.transform_node.set_root_pivot(zero_point())
 
-        self.transform_node.set_root_pivot(
-            vec3()
-        )
-
-        # -------------------------------------------------
-        # INTERNAL STATE
-        # -------------------------------------------------
-
-        self.current_angle = 0.0
-
-        self.debug_enabled = False
-
-        self.is_planted = True
-
-        # -------------------------------------------------
-        # BUILD
-        # -------------------------------------------------
-
-        self._build_joint()
         self._register_anchors()
+        self._build_joint()
         self._build_debug()
-
         self._update_debug_visibility()
 
-    # =====================================================
-    # BUILD JOINT
-    # =====================================================
+        if position is not None:
+            self.move_to(_coerce_point3(position, "position"))
 
-    def _build_joint(self):
-        """
-        Main ankle geometry.
-        """
+        self.name = self.joint_name
+        self.is_creature_ankle_joint = True
 
+    def _register_anchors(self) -> None:
+        """
+        Register local ankle anchors.
+
+        legs.py decides where ankle sits in the full leg chain.
+        """
+        self.root_anchor = zero_point()
+        self.center_anchor = zero_point()
+
+        self.lower_leg_anchor = point(
+            0.0,
+            self.config.radius,
+            0.0,
+        )
+
+        self.foot_attachment_anchor = point(
+            0.0,
+            -self.config.radius,
+            0.0,
+        )
+
+        self.upper_attachment_anchor = self.lower_leg_anchor
+
+        self.transform_node.set_center_point(self.center_anchor)
+        self.transform_node.set_root_pivot(self.root_anchor)
+
+    def _build_joint(self) -> None:
+        """
+        Build main ankle geometry.
+        """
         self.outer_joint = Circle(
             radius=self.config.radius,
             stroke_color=self.config.outline_color,
@@ -168,20 +235,16 @@ class AnkleJoint(VGroup):
         )
 
         self.inner_joint = Dot(
-            point=vec3(),
+            point=zero_point(),
             radius=self.config.radius * 0.35,
             color=self.config.foot_direction_color,
         )
 
-        # -------------------------------------------------
-        # FOOT DIRECTION INDICATOR
-        # -------------------------------------------------
-
         self.foot_direction_line = Line(
-            vec3(),
-            vec3(0.0, -0.38, 0.0),
+            zero_point(),
+            point(0.0, -0.38, 0.0),
             color=self.config.foot_direction_color,
-            stroke_width=3,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
 
         self.add(
@@ -190,95 +253,37 @@ class AnkleJoint(VGroup):
             self.foot_direction_line,
         )
 
-    # =====================================================
-    # ANCHORS
-    # =====================================================
-
-    def _register_anchors(self):
-        """
-        Register important ankle anchors.
-        """
-
-        self.root_anchor = vec3()
-
-        self.upper_attachment_anchor = vec3(
-            0.0,
-            self.config.radius,
-            0.0,
-        )
-
-        self.foot_attachment_anchor = vec3(
-            0.0,
-            -self.config.radius,
-            0.0,
-        )
-
-        self.center_anchor = vec3()
-
-        self.transform_node.set_center_point(
-            self.center_anchor
-        )
-
-        self.transform_node.set_root_pivot(
-            self.root_anchor
-        )
-
-    # =====================================================
-    # DEBUG BUILD
-    # =====================================================
-
-    def _build_debug(self):
+    def _build_debug(self) -> None:
         """
         Build ankle debug overlays.
         """
-
         self.debug_group = VGroup()
 
-        # -------------------------------------------------
-        # AXES
-        # -------------------------------------------------
-
         self.axes_debug = create_local_axes(
-            origin=vec3(),
+            origin=zero_point(),
             axis_length=self.config.axis_length,
         )
 
-        # -------------------------------------------------
-        # ANGLE ARC
-        # -------------------------------------------------
-
         self.angle_arc = Arc(
             radius=self.config.angle_arc_radius,
-            start_angle=-PI / 2,
+            start_angle=-np.pi / 2.0,
             angle=0.001,
-            color=YELLOW,
-            stroke_width=3,
+            color=self.config.debug_color,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
 
-        # -------------------------------------------------
-        # PIVOT DOT
-        # -------------------------------------------------
-
         self.pivot_dot = Dot(
-            point=vec3(),
+            point=self.root_anchor,
             radius=0.025,
             color=GREEN,
         )
 
-        # -------------------------------------------------
-        # FOOT TARGET LINE
-        # -------------------------------------------------
-
         self.foot_target_line = Line(
-            vec3(),
-            vec3(0.0, -0.55, 0.0),
+            zero_point(),
+            point(0.0, -0.55, 0.0),
             color=RED,
-            stroke_width=2,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
-
-        # -------------------------------------------------
-        # ANGLE LABEL
-        # -------------------------------------------------
 
         self.angle_text = (
             Text(
@@ -287,7 +292,7 @@ class AnkleJoint(VGroup):
             )
             .scale(0.35)
             .move_to(
-                vec3(
+                point(
                     0.0,
                     self.config.angle_arc_radius + 0.18,
                     0.0,
@@ -295,28 +300,17 @@ class AnkleJoint(VGroup):
             )
         )
 
-        # -------------------------------------------------
-        # STATE LABEL
-        # -------------------------------------------------
-
         self.state_text = (
             Text(
                 "PLANTED",
                 font_size=18,
+                color=GREEN,
             )
             .scale(0.35)
             .move_to(
-                vec3(
-                    0.0,
-                    -0.45,
-                    0.0,
-                )
+                point(0.0, -0.45, 0.0)
             )
         )
-
-        # -------------------------------------------------
-        # ASSEMBLE
-        # -------------------------------------------------
 
         self.debug_group.add(
             self.axes_debug,
@@ -329,188 +323,115 @@ class AnkleJoint(VGroup):
 
         self.add(self.debug_group)
 
-    # =====================================================
-    # DEBUG VISIBILITY
-    # =====================================================
-
-    def _update_debug_visibility(self):
+    def _update_debug_visibility(self) -> None:
         opacity = 1.0 if self.debug_enabled else 0.0
-
         self.debug_group.set_opacity(opacity)
 
-    # =====================================================
-    # DEBUG CONTROL
-    # =====================================================
-
-    def enable_debug(self):
+    def enable_debug(self) -> None:
         self.debug_enabled = True
         self._update_debug_visibility()
 
-    def disable_debug(self):
+    def disable_debug(self) -> None:
         self.debug_enabled = False
         self._update_debug_visibility()
 
-    def toggle_debug(self):
+    def toggle_debug(self) -> None:
         self.debug_enabled = not self.debug_enabled
         self._update_debug_visibility()
 
-    # =====================================================
-    # ROTATION
-    # =====================================================
-
-    def set_ankle_angle(
-        self,
-        angle: float,
-    ):
+    def set_ankle_angle(self, angle: float) -> None:
         """
         Set ankle articulation angle.
+
+        This updates local state and debug visuals only.
+        legs.py / leg_rig.py should control actual segment placement.
         """
-
-        self.current_angle = angle
-
+        self.current_angle = _validate_numeric("angle", angle)
         self._update_visuals()
 
-    def rotate_ankle(
-        self,
-        delta_angle: float,
-    ):
+    def rotate_ankle(self, delta_angle: float) -> None:
         """
-        Incremental ankle rotation.
+        Increment ankle articulation angle.
         """
-
-        self.current_angle += delta_angle
-
+        self.current_angle += _validate_numeric(
+            "delta_angle",
+            delta_angle,
+        )
         self._update_visuals()
 
-    # =====================================================
-    # FOOT STATE
-    # =====================================================
-
-    def set_planted(self):
+    def set_planted(self) -> None:
         """
-        Foot planted on ground.
+        Mark connected foot as planted.
         """
-
         self.is_planted = True
-
         self._update_state_visual()
 
-    def set_lifted(self):
+    def set_lifted(self) -> None:
         """
-        Foot lifted during step.
+        Mark connected foot as lifted.
         """
-
         self.is_planted = False
-
         self._update_state_visual()
 
-    # =====================================================
-    # VISUAL UPDATE
-    # =====================================================
-
-    def _update_visuals(self):
+    def _update_visuals(self) -> None:
         """
-        Update angle visuals.
+        Update ankle debug angle visuals.
         """
-
-        # -------------------------------------------------
-        # DIRECTION LINE
-        # -------------------------------------------------
-
-        direction = vec3(
+        direction = point(
             np.sin(self.current_angle),
             -np.cos(self.current_angle),
             0.0,
         )
 
-        end = direction * 0.38
-
         new_line = Line(
-            vec3(),
-            end,
+            zero_point(),
+            direction * 0.38,
             color=self.config.foot_direction_color,
-            stroke_width=3,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
-
         self.foot_direction_line.become(new_line)
-
-        # -------------------------------------------------
-        # ARC
-        # -------------------------------------------------
 
         new_arc = Arc(
             radius=self.config.angle_arc_radius,
-            start_angle=-PI / 2,
+            start_angle=-np.pi / 2.0,
             angle=self.current_angle,
-            color=YELLOW,
-            stroke_width=3,
+            color=self.config.debug_color,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
-
         self.angle_arc.become(new_arc)
 
-        # -------------------------------------------------
-        # ANGLE LABEL
-        # -------------------------------------------------
-
-        degrees = round(
-            np.degrees(self.current_angle),
-            1,
-        )
+        degrees_value = round(float(np.degrees(self.current_angle)), 1)
 
         new_text = (
             Text(
-                f"{degrees}°",
+                f"{degrees_value}°",
                 font_size=18,
             )
             .scale(0.35)
             .move_to(
-                vec3(
+                point(
                     0.0,
                     self.config.angle_arc_radius + 0.18,
                     0.0,
                 )
             )
         )
-
         self.angle_text.become(new_text)
 
-        # -------------------------------------------------
-        # TARGET LINE
-        # -------------------------------------------------
-
-        foot_end = direction * 0.55
-
         new_target_line = Line(
-            vec3(),
-            foot_end,
+            zero_point(),
+            direction * 0.55,
             color=RED,
-            stroke_width=2,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
+        self.foot_target_line.become(new_target_line)
 
-        self.foot_target_line.become(
-            new_target_line
-        )
-
-    # =====================================================
-    # STATE VISUAL
-    # =====================================================
-
-    def _update_state_visual(self):
+    def _update_state_visual(self) -> None:
         """
         Update planted/lifted state text.
         """
-
-        state_label = (
-            "PLANTED"
-            if self.is_planted
-            else "LIFTED"
-        )
-
-        color = (
-            GREEN
-            if self.is_planted
-            else YELLOW
-        )
+        state_label = "PLANTED" if self.is_planted else "LIFTED"
+        color = GREEN if self.is_planted else YELLOW
 
         new_state = (
             Text(
@@ -520,118 +441,120 @@ class AnkleJoint(VGroup):
             )
             .scale(0.35)
             .move_to(
-                vec3(
-                    0.0,
-                    -0.45,
-                    0.0,
-                )
+                point(0.0, -0.45, 0.0)
             )
         )
 
         self.state_text.become(new_state)
 
-    # =====================================================
-    # ACCESSORS
-    # =====================================================
-
     def get_transform_node(self) -> TransformNode:
         return self.transform_node
 
-    # =====================================================
-    # ANCHOR ACCESS
-    # =====================================================
+    def get_root_anchor(self) -> Vector3:
+        return np.array(self.root_anchor, dtype=float)
 
-    def get_root_anchor(self):
-        return np.array(self.root_anchor)
+    def get_lower_leg_anchor(self) -> Vector3:
+        return np.array(self.lower_leg_anchor, dtype=float)
 
-    def get_upper_attachment_anchor(self):
-        return np.array(
-            self.upper_attachment_anchor
-        )
+    def get_upper_attachment_anchor(self) -> Vector3:
+        return self.get_lower_leg_anchor()
 
-    def get_foot_attachment_anchor(self):
-        return np.array(
-            self.foot_attachment_anchor
-        )
+    def get_foot_attachment_anchor(self) -> Vector3:
+        return np.array(self.foot_attachment_anchor, dtype=float)
 
-    def get_center_anchor(self):
-        return np.array(self.center_anchor)
+    def get_center_anchor(self) -> Vector3:
+        return np.array(self.center_anchor, dtype=float)
 
-    # =====================================================
-    # STATE ACCESS
-    # =====================================================
+    def get_anchor_map(self) -> dict[str, Vector3]:
+        return {
+            "root": self.get_root_anchor(),
+            "center": self.get_center_anchor(),
+            "lower_leg": self.get_lower_leg_anchor(),
+            "upper_attachment": self.get_upper_attachment_anchor(),
+            "foot_attachment": self.get_foot_attachment_anchor(),
+        }
 
     def get_ankle_angle(self) -> float:
-        return self.current_angle
+        return float(self.current_angle)
 
     def foot_is_planted(self) -> bool:
-        return self.is_planted
+        return bool(self.is_planted)
 
-    # =====================================================
-    # RESET
-    # =====================================================
-
-    def reset_joint(self):
+    def reset_joint(self) -> None:
         """
         Reset ankle state.
         """
-
         self.current_angle = 0.0
-
         self.is_planted = True
 
         self._update_visuals()
         self._update_state_visual()
 
-    # =====================================================
-    # DEBUG PRINT
-    # =====================================================
-
-    def debug_print(self):
+    def debug_print(self) -> None:
         print("========== ANKLE DEBUG ==========")
         print("Name:", self.joint_name)
         print("Angle:", self.current_angle)
         print("Planted:", self.is_planted)
+        print("Anchors:", self.get_anchor_map())
         print("=================================")
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
-            f"AnkleJoint("
-            f"name='{self.joint_name}', "
+            "AnkleJoint("
+            f"name={self.joint_name!r}, "
             f"angle={round(self.current_angle, 3)}"
-            f")"
+            ")"
         )
 
 
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
-
 def build_ankle_joint(
-    config: AnkleJointConfig | None = None,
+    *,
+    position: Optional[Vec3Like] = None,
+    config: Optional[AnkleJointConfig] = None,
+    debug_enabled: Optional[bool] = None,
 ) -> AnkleJoint:
     """
-    Create production-ready ankle joint.
+    Create ankle joint connector.
     """
+    if debug_enabled is None:
+        debug_enabled = DEBUG_MODE
 
-    return AnkleJoint(
+    if LOG_CREATURE_BUILD:
+        logger.info("Building ankle joint")
+
+    joint = AnkleJoint(
         config=config,
+        name=creature_part_name("ankle_joint"),
+        position=position,
+        debug_enabled=debug_enabled,
     )
+
+    if LOG_CREATURE_BUILD:
+        logger.info("Ankle joint created successfully")
+
+    return joint
 
 
 def build_debug_ankle_joint(
-    config: AnkleJointConfig | None = None,
+    *,
+    position: Optional[Vec3Like] = None,
+    config: Optional[AnkleJointConfig] = None,
 ) -> AnkleJoint:
     """
-    Create ankle joint with debug enabled.
+    Create debug-enabled ankle joint.
     """
+    return build_ankle_joint(
+        position=position,
+        config=config,
+        debug_enabled=True,
+    )
 
-    joint = AnkleJoint(config=config)
 
-    joint.enable_debug()
-
-    return joint
+__all__ = [
+    "Vector3",
+    "Vec3Like",
+    "AnkleJointConfig",
+    "AnkleJoint",
+    "build_ankle_joint",
+    "build_debug_ankle_joint",
+]

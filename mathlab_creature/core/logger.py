@@ -11,6 +11,7 @@ Goals:
 - consistent formatting
 - easy access via get_logger(...)
 - avoid duplicate handler setup
+- named child loggers for root, body core, skeleton, actions, and audio
 """
 
 from __future__ import annotations
@@ -27,11 +28,9 @@ from mathlab_creature.config.logging_config import (
     ENABLE_FILE_LOGGING,
     CLEAR_EXISTING_HANDLERS_ON_SETUP,
     ENABLE_LOGGER_PROPAGATION,
-    LOG_FILE_PATH,
     LOG_FILE_ENCODING,
     LOG_FILE_MODE,
     DEFAULT_LOGGING_MODE,
-    DEFAULT_LOG_LEVEL,
     DEFAULT_HANDLER_LEVEL,
     DEFAULT_CONSOLE_FORMAT,
     DEFAULT_FILE_FORMAT,
@@ -62,7 +61,10 @@ def _ensure_string(value: object, name: str) -> str:
     Ensure a value is a string.
     """
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string, got {type(value).__name__}")
+        raise TypeError(
+            f"{name} must be a string, got {type(value).__name__}"
+        )
+
     return value
 
 
@@ -91,14 +93,23 @@ def _ensure_log_directory(file_path: str) -> None:
     directory = os.path.dirname(file_path)
 
     if directory and not os.path.exists(directory):
-        os.makedirs(directory, exist_ok=True)
+        os.makedirs(
+            directory,
+            exist_ok=True,
+        )
 
 
-def _build_formatter(fmt: str, datefmt: str) -> logging.Formatter:
+def _build_formatter(
+    fmt: str,
+    datefmt: str,
+) -> logging.Formatter:
     """
     Create a logging formatter.
     """
-    return logging.Formatter(fmt=fmt, datefmt=datefmt)
+    return logging.Formatter(
+        fmt=fmt,
+        datefmt=datefmt,
+    )
 
 
 def _attach_console_handler(
@@ -113,7 +124,13 @@ def _attach_console_handler(
     console_handler = logging.StreamHandler()
     console_handler.set_name(CONSOLE_HANDLER_NAME)
     console_handler.setLevel(handler_level)
-    console_handler.setFormatter(_build_formatter(fmt, datefmt))
+    console_handler.setFormatter(
+        _build_formatter(
+            fmt,
+            datefmt,
+        )
+    )
+
     logger.addHandler(console_handler)
 
 
@@ -136,7 +153,13 @@ def _attach_file_handler(
     )
     file_handler.set_name(FILE_HANDLER_NAME)
     file_handler.setLevel(handler_level)
-    file_handler.setFormatter(_build_formatter(fmt, datefmt))
+    file_handler.setFormatter(
+        _build_formatter(
+            fmt,
+            datefmt,
+        )
+    )
+
     logger.addHandler(file_handler)
 
 
@@ -146,6 +169,7 @@ def _disable_logger(logger: logging.Logger) -> logging.Logger:
     """
     logger.disabled = True
     logger.propagate = False
+
     return logger
 
 
@@ -153,7 +177,9 @@ def _disable_logger(logger: logging.Logger) -> logging.Logger:
 # Setup logic
 # ============================================================
 
-def setup_logger(mode: str = DEFAULT_LOGGING_MODE) -> logging.Logger:
+def setup_logger(
+    mode: str = DEFAULT_LOGGING_MODE,
+) -> logging.Logger:
     """
     Initialize the root project logger once.
 
@@ -175,10 +201,12 @@ def setup_logger(mode: str = DEFAULT_LOGGING_MODE) -> logging.Logger:
     if _LOGGER_INITIALIZED:
         if WARN_ON_REPEATED_SETUP and _INITIALIZED_MODE != mode:
             logger.warning(
-                "Logger already initialized in mode '%s'; requested mode '%s' ignored.",
+                "Logger already initialized in mode '%s'; "
+                "requested mode '%s' ignored.",
                 _INITIALIZED_MODE,
                 mode,
             )
+
         return logger
 
     settings = build_logging_settings(mode)
@@ -220,13 +248,17 @@ def setup_logger(mode: str = DEFAULT_LOGGING_MODE) -> logging.Logger:
                 ENABLE_FILE_LOGGING,
             )
         else:
-            logger.info("Logger initialized successfully")
+            logger.info(
+                "Logger initialized successfully"
+            )
 
     except Exception as exc:
         if RAISE_ON_LOG_SETUP_ERROR:
             raise
 
-        print(f"[LOGGER ERROR] Failed to initialize logger: {exc}")
+        print(
+            f"[LOGGER ERROR] Failed to initialize logger: {exc}"
+        )
 
     return logger
 
@@ -235,24 +267,74 @@ def setup_logger(mode: str = DEFAULT_LOGGING_MODE) -> logging.Logger:
 # Public access
 # ============================================================
 
-def get_logger(name: Optional[str] = None, mode: str = DEFAULT_LOGGING_MODE) -> logging.Logger:
+def get_logger(
+    name: Optional[str] = None,
+    mode: str = DEFAULT_LOGGING_MODE,
+) -> logging.Logger:
     """
     Get the project logger or a child logger.
 
     Examples:
         logger = get_logger()
         logger = get_logger(__name__)
+        logger = get_root_logger()
+        logger = get_audio_logger()
     """
-    base_logger = setup_logger(mode=mode)
+    base_logger = setup_logger(
+        mode=mode,
+    )
 
     if not name:
         return base_logger
 
     child_name = _clean_child_logger_name(name)
+
     if not child_name:
         return base_logger
 
     return base_logger.getChild(child_name)
+
+
+def get_root_logger() -> logging.Logger:
+    """
+    Return logger for CreatureRoot related events.
+    """
+    return get_logger("root")
+
+
+def get_body_core_logger() -> logging.Logger:
+    """
+    Return logger for BodyCore related events.
+    """
+    return get_logger("body_core")
+
+
+def get_skeleton_logger() -> logging.Logger:
+    """
+    Return logger for Skeleton related events.
+    """
+    return get_logger("skeleton")
+
+
+def get_action_logger() -> logging.Logger:
+    """
+    Return logger for creature action events.
+    """
+    return get_logger("actions")
+
+
+def get_controller_logger() -> logging.Logger:
+    """
+    Return logger for creature controller events.
+    """
+    return get_logger("controllers")
+
+
+def get_audio_logger() -> logging.Logger:
+    """
+    Return logger for audio subsystem events.
+    """
+    return get_logger("audio")
 
 
 def is_logger_initialized() -> bool:
@@ -280,6 +362,8 @@ def reset_logger_state() -> None:
             logger.removeHandler(handler)
 
     logger.disabled = False
+    logger.propagate = ENABLE_LOGGER_PROPAGATION
+
     _LOGGER_INITIALIZED = False
     _INITIALIZED_MODE = None
 
@@ -288,21 +372,99 @@ def reset_logger_state() -> None:
 # Convenience wrappers
 # ============================================================
 
-def log_debug(msg: str, *args, **kwargs) -> None:
-    get_logger().debug(msg, *args, **kwargs)
+def log_debug(
+    msg: str,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Log a debug message using the base project logger.
+    """
+    get_logger().debug(
+        msg,
+        *args,
+        **kwargs,
+    )
 
 
-def log_info(msg: str, *args, **kwargs) -> None:
-    get_logger().info(msg, *args, **kwargs)
+def log_info(
+    msg: str,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Log an info message using the base project logger.
+    """
+    get_logger().info(
+        msg,
+        *args,
+        **kwargs,
+    )
 
 
-def log_warning(msg: str, *args, **kwargs) -> None:
-    get_logger().warning(msg, *args, **kwargs)
+def log_warning(
+    msg: str,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Log a warning message using the base project logger.
+    """
+    get_logger().warning(
+        msg,
+        *args,
+        **kwargs,
+    )
 
 
-def log_error(msg: str, *args, **kwargs) -> None:
-    get_logger().error(msg, *args, **kwargs)
+def log_error(
+    msg: str,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Log an error message using the base project logger.
+    """
+    get_logger().error(
+        msg,
+        *args,
+        **kwargs,
+    )
 
 
-def log_exception(msg: str, *args, **kwargs) -> None:
-    get_logger().exception(msg, *args, **kwargs)
+def log_exception(
+    msg: str,
+    *args,
+    **kwargs,
+) -> None:
+    """
+    Log an exception message using the base project logger.
+    """
+    get_logger().exception(
+        msg,
+        *args,
+        **kwargs,
+    )
+
+
+# ============================================================
+# Export control
+# ============================================================
+
+__all__ = [
+    "setup_logger",
+    "get_logger",
+    "get_root_logger",
+    "get_body_core_logger",
+    "get_skeleton_logger",
+    "get_action_logger",
+    "get_controller_logger",
+    "get_audio_logger",
+    "is_logger_initialized",
+    "reset_logger_state",
+    "log_debug",
+    "log_info",
+    "log_warning",
+    "log_error",
+    "log_exception",
+]

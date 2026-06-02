@@ -1,152 +1,211 @@
 """
-mathlab_creature/creature/parts/hip_joint.py
+Hip / pelvis joint construction for mathlab-mylinehub-creature.
 
-Production-grade hip/pelvis joint system
-for articulated creature rigs.
+This file builds the pelvis / hip connector for the connected creature system.
 
-Core Responsibilities
----------------------
-- pelvis anchor
-- left/right leg roots
-- root leg attachment
-- center-of-mass anchor
-- hierarchy-safe transforms
-- future body balancing support
+Architecture rule:
+- hip joint is a connector part
+- hip joint does not build legs
+- hip joint provides left/right leg anchors
+- legs.py will attach legs to these anchors
+- body_m.py/body_core.py will attach hip/pelvis into the creature body
+- hip joint should not move independently in scene code
+- audio is not handled here; audio may be triggered later by walk/step actions
 
-Design Goals
-------------
-- production-ready
-- animation-safe
-- hierarchy-safe
-- future IK-ready
-- future 3D-ready
-- controller-friendly
+Connection chain:
+
+    BodyCore / BodyM
+        |
+        HipJoint / Pelvis
+        |
+        +-- Left Leg
+        |
+        +-- Right Leg
+
+So this file connects the body to legs.
+Feet are connected later inside legs.py.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
+from typing import Optional
 
 import numpy as np
 
-from manimlib import (
-    VGroup,
-    RoundedRectangle,
-    Circle,
-    Dot,
-    Line,
-    Text,
-)
+from manimlib import Circle
+from manimlib import Dot
+from manimlib import Line
+from manimlib import RoundedRectangle
+from manimlib import Text
+from manimlib import VGroup
 
-from manimlib.constants import (
-    BLUE_E,
-    GREY_B,
-    WHITE,
-    YELLOW,
-    RED,
-    GREEN,
-)
+from manimlib.constants import BLUE_E
+from manimlib.constants import GREEN
+from manimlib.constants import GREY_B
+from manimlib.constants import WHITE
+from manimlib.constants import YELLOW
 
-from mathlab_creature.core.transforms import (
-    TransformNode,
-    create_transform_node,
-    vec3,
-)
+from mathlab_creature.config.defaults import DEBUG_MODE
+from mathlab_creature.config.defaults import LOG_CREATURE_BUILD
+from mathlab_creature.config.defaults import PELVIS_NAME
+from mathlab_creature.config.sizes import DEBUG_STROKE_WIDTH
+from mathlab_creature.config.sizes import JOINT_RADIUS
+from mathlab_creature.config.sizes import PELVIS_WIDTH
 
-from mathlab_creature.core.debug_draw import (
-    create_local_axes,
-)
+from mathlab_creature.core.debug_draw import create_local_axes
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import point
+from mathlab_creature.core.geometry import zero_point
+from mathlab_creature.core.logger import get_logger
+from mathlab_creature.core.naming import creature_part_name
+from mathlab_creature.core.transforms import TransformNode
+from mathlab_creature.core.transforms import create_transform_node
 
 
-# =========================================================
-# CONFIG
-# =========================================================
+logger = get_logger(__name__)
+
+
+Vector3 = np.ndarray
+Vec3Like = np.ndarray | Iterable[float]
+
 
 @dataclass
 class HipJointConfig:
     """
-    Tunable pelvis configuration.
+    Tunable pelvis / hip joint configuration.
     """
 
-    pelvis_width: float = 0.85
+    pelvis_width: float = PELVIS_WIDTH
     pelvis_height: float = 0.28
-
     corner_radius: float = 0.12
 
-    pelvis_color = BLUE_E
+    pelvis_color: str = BLUE_E
 
-    joint_radius: float = 0.07
-    joint_color = GREY_B
+    joint_radius: float = JOINT_RADIUS
+    joint_color: str = GREY_B
 
-    leg_spacing: float = 0.34
+    leg_spacing: float = PELVIS_WIDTH / 2.0
 
     debug_axis_length: float = 0.45
-
     show_debug_axes: bool = False
 
 
-# =========================================================
-# HIP JOINT
-# =========================================================
+def _validate_numeric(name: str, value: float | int) -> float:
+    if not isinstance(value, (int, float)):
+        raise TypeError(
+            f"{name} must be numeric, got {type(value).__name__}"
+        )
+    return float(value)
+
+
+def _validate_positive(name: str, value: float | int) -> float:
+    value = _validate_numeric(name, value)
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0, got {value}")
+    return value
+
+
+def _validate_non_negative(name: str, value: float | int) -> float:
+    value = _validate_numeric(name, value)
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0, got {value}")
+    return value
+
+
+def _coerce_point3(
+    value: Optional[Vec3Like],
+    name: str = "value",
+) -> Vector3:
+    if value is None:
+        return zero_point()
+
+    return as_vec3(value, name=name)
+
+
+def _validated_config(config: Optional[HipJointConfig]) -> HipJointConfig:
+    config = config or HipJointConfig()
+
+    config.pelvis_width = _validate_positive(
+        "config.pelvis_width",
+        config.pelvis_width,
+    )
+    config.pelvis_height = _validate_positive(
+        "config.pelvis_height",
+        config.pelvis_height,
+    )
+    config.corner_radius = _validate_non_negative(
+        "config.corner_radius",
+        config.corner_radius,
+    )
+    config.joint_radius = _validate_positive(
+        "config.joint_radius",
+        config.joint_radius,
+    )
+    config.leg_spacing = _validate_positive(
+        "config.leg_spacing",
+        config.leg_spacing,
+    )
+    config.debug_axis_length = _validate_non_negative(
+        "config.debug_axis_length",
+        config.debug_axis_length,
+    )
+
+    return config
+
 
 class HipJoint(VGroup):
     """
-    Production-grade pelvis/hip system.
+    Pelvis / hip connector.
 
     Responsibilities:
-    - left/right leg anchors
-    - body attachment root
-    - balance anchor
+    - pelvis visual body
+    - body attachment anchor
+    - left leg root anchor
+    - right leg root anchor
     - center-of-mass reference
+    - local debug overlays
+
+    This class does not build legs.
     """
 
     def __init__(
         self,
-        config: HipJointConfig | None = None,
+        config: Optional[HipJointConfig] = None,
         name: str = "hip_joint",
+        position: Optional[Vec3Like] = None,
+        debug_enabled: bool = False,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(**kwargs)
 
-        self.config = config or HipJointConfig()
+        self.config = _validated_config(config)
+        self.joint_name = str(name)
 
-        self.joint_name = name
-
-        # -------------------------------------------------
-        # TRANSFORM NODE
-        # -------------------------------------------------
+        self.debug_enabled = bool(debug_enabled)
 
         self.transform_node = create_transform_node(
-            name=name,
+            name=self.joint_name,
             mobject=self,
         )
-
-        # -------------------------------------------------
-        # INTERNAL STATE
-        # -------------------------------------------------
-
-        self.debug_enabled = False
-
-        # -------------------------------------------------
-        # BUILD
-        # -------------------------------------------------
 
         self._build_pelvis()
         self._build_leg_roots()
         self._register_anchors()
         self._build_debug()
-
         self._update_debug_visibility()
 
-    # =====================================================
-    # BUILD PELVIS
-    # =====================================================
+        if position is not None:
+            self.move_to(_coerce_point3(position, "position"))
 
-    def _build_pelvis(self):
-        """
-        Main pelvis geometry.
-        """
+        self.name = self.joint_name
+        self.is_creature_hip_joint = True
 
+    def _build_pelvis(self) -> None:
+        """
+        Build pelvis body shape.
+        """
         self.pelvis = RoundedRectangle(
             width=self.config.pelvis_width,
             height=self.config.pelvis_height,
@@ -158,20 +217,11 @@ class HipJoint(VGroup):
 
         self.add(self.pelvis)
 
-    # =====================================================
-    # LEG ROOTS
-    # =====================================================
-
-    def _build_leg_roots(self):
+    def _build_leg_roots(self) -> None:
         """
-        Left/right leg root pivots.
+        Build left/right leg root visual joints.
         """
-
         spacing = self.config.leg_spacing
-
-        # -------------------------------------------------
-        # LEFT ROOT
-        # -------------------------------------------------
 
         self.left_root = Circle(
             radius=self.config.joint_radius,
@@ -179,14 +229,7 @@ class HipJoint(VGroup):
             fill_color=self.config.joint_color,
             fill_opacity=1.0,
         )
-
-        self.left_root.move_to(
-            vec3(-spacing, 0.0, 0.0)
-        )
-
-        # -------------------------------------------------
-        # RIGHT ROOT
-        # -------------------------------------------------
+        self.left_root.move_to(point(-spacing, 0.0, 0.0))
 
         self.right_root = Circle(
             radius=self.config.joint_radius,
@@ -194,104 +237,58 @@ class HipJoint(VGroup):
             fill_color=self.config.joint_color,
             fill_opacity=1.0,
         )
-
-        self.right_root.move_to(
-            vec3(spacing, 0.0, 0.0)
-        )
+        self.right_root.move_to(point(spacing, 0.0, 0.0))
 
         self.add(
             self.left_root,
             self.right_root,
         )
 
-    # =====================================================
-    # ANCHORS
-    # =====================================================
-
-    def _register_anchors(self):
+    def _register_anchors(self) -> None:
         """
-        Register important pelvis anchors.
+        Register pelvis anchors in local hip-joint space.
         """
-
         spacing = self.config.leg_spacing
 
-        # -------------------------------------------------
-        # ROOT
-        # -------------------------------------------------
+        self.root_anchor = zero_point()
 
-        self.root_anchor = vec3()
-
-        # -------------------------------------------------
-        # BODY ATTACHMENT
-        # -------------------------------------------------
-
-        self.body_anchor = vec3(
+        self.body_anchor = point(
             0.0,
             self.config.pelvis_height / 2.0,
             0.0,
         )
 
-        # -------------------------------------------------
-        # LEFT LEG
-        # -------------------------------------------------
-
-        self.left_leg_anchor = vec3(
+        self.left_leg_anchor = point(
             -spacing,
             0.0,
             0.0,
         )
 
-        # -------------------------------------------------
-        # RIGHT LEG
-        # -------------------------------------------------
-
-        self.right_leg_anchor = vec3(
+        self.right_leg_anchor = point(
             spacing,
             0.0,
             0.0,
         )
 
-        # -------------------------------------------------
-        # CENTER OF MASS
-        # -------------------------------------------------
+        self.center_of_mass = zero_point()
 
-        self.center_of_mass = vec3()
+        self.transform_node.set_center_point(self.center_of_mass)
+        self.transform_node.set_root_pivot(self.root_anchor)
 
-        # -------------------------------------------------
-        # TRANSFORM NODE
-        # -------------------------------------------------
+        self.pelvis_anchor = self.root_anchor
+        self.left_hip_anchor = self.left_leg_anchor
+        self.right_hip_anchor = self.right_leg_anchor
 
-        self.transform_node.set_center_point(
-            self.center_of_mass
-        )
-
-        self.transform_node.set_root_pivot(
-            self.root_anchor
-        )
-
-    # =====================================================
-    # DEBUG BUILD
-    # =====================================================
-
-    def _build_debug(self):
+    def _build_debug(self) -> None:
         """
-        Build pelvis debug overlays.
+        Build debug overlays.
         """
-
         self.debug_group = VGroup()
 
-        # -------------------------------------------------
-        # LOCAL AXES
-        # -------------------------------------------------
-
         self.axes_debug = create_local_axes(
-            origin=vec3(),
+            origin=zero_point(),
             axis_length=self.config.debug_axis_length,
         )
-
-        # -------------------------------------------------
-        # CENTER OF MASS
-        # -------------------------------------------------
 
         self.center_dot = Dot(
             point=self.center_of_mass,
@@ -299,41 +296,25 @@ class HipJoint(VGroup):
             color=YELLOW,
         )
 
-        # -------------------------------------------------
-        # BODY ANCHOR
-        # -------------------------------------------------
-
         self.body_anchor_dot = Dot(
             point=self.body_anchor,
             radius=0.03,
             color=GREEN,
         )
 
-        # -------------------------------------------------
-        # LEFT CONNECTION LINE
-        # -------------------------------------------------
-
         self.left_line = Line(
             self.root_anchor,
             self.left_leg_anchor,
             color=WHITE,
-            stroke_width=2,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
-
-        # -------------------------------------------------
-        # RIGHT CONNECTION LINE
-        # -------------------------------------------------
 
         self.right_line = Line(
             self.root_anchor,
             self.right_leg_anchor,
             color=WHITE,
-            stroke_width=2,
+            stroke_width=DEBUG_STROKE_WIDTH,
         )
-
-        # -------------------------------------------------
-        # LABEL
-        # -------------------------------------------------
 
         self.label = (
             Text(
@@ -342,18 +323,13 @@ class HipJoint(VGroup):
             )
             .scale(0.35)
             .move_to(
-                vec3(
+                point(
                     0.0,
-                    self.config.pelvis_height
-                    + 0.25,
+                    self.config.pelvis_height + 0.25,
                     0.0,
                 )
             )
         )
-
-        # -------------------------------------------------
-        # ASSEMBLE
-        # -------------------------------------------------
 
         self.debug_group.add(
             self.axes_debug,
@@ -366,146 +342,147 @@ class HipJoint(VGroup):
 
         self.add(self.debug_group)
 
-    # =====================================================
-    # DEBUG VISIBILITY
-    # =====================================================
-
-    def _update_debug_visibility(self):
+    def _update_debug_visibility(self) -> None:
         opacity = 1.0 if self.debug_enabled else 0.0
-
         self.debug_group.set_opacity(opacity)
 
-    # =====================================================
-    # DEBUG CONTROL
-    # =====================================================
-
-    def enable_debug(self):
+    def enable_debug(self) -> None:
         self.debug_enabled = True
         self._update_debug_visibility()
 
-    def disable_debug(self):
+    def disable_debug(self) -> None:
         self.debug_enabled = False
         self._update_debug_visibility()
 
-    def toggle_debug(self):
+    def toggle_debug(self) -> None:
         self.debug_enabled = not self.debug_enabled
         self._update_debug_visibility()
-
-    # =====================================================
-    # ACCESSORS
-    # =====================================================
 
     def get_transform_node(self) -> TransformNode:
         return self.transform_node
 
-    # =====================================================
-    # ANCHOR ACCESS
-    # =====================================================
+    def get_root_anchor(self) -> Vector3:
+        return np.array(self.root_anchor, dtype=float)
 
-    def get_root_anchor(self):
-        return np.array(self.root_anchor)
+    def get_body_anchor(self) -> Vector3:
+        return np.array(self.body_anchor, dtype=float)
 
-    def get_body_anchor(self):
-        return np.array(self.body_anchor)
+    def get_left_leg_anchor(self) -> Vector3:
+        return np.array(self.left_leg_anchor, dtype=float)
 
-    def get_left_leg_anchor(self):
-        return np.array(self.left_leg_anchor)
+    def get_right_leg_anchor(self) -> Vector3:
+        return np.array(self.right_leg_anchor, dtype=float)
 
-    def get_right_leg_anchor(self):
-        return np.array(self.right_leg_anchor)
+    def get_left_hip_anchor(self) -> Vector3:
+        return self.get_left_leg_anchor()
 
-    def get_center_of_mass(self):
-        return np.array(self.center_of_mass)
+    def get_right_hip_anchor(self) -> Vector3:
+        return self.get_right_leg_anchor()
 
-    # =====================================================
-    # MOVEMENT HELPERS
-    # =====================================================
+    def get_center_of_mass(self) -> Vector3:
+        return np.array(self.center_of_mass, dtype=float)
+
+    def get_anchor_map(self) -> dict[str, Vector3]:
+        """
+        Return all important local hip anchors.
+        """
+        return {
+            "root": self.get_root_anchor(),
+            "body": self.get_body_anchor(),
+            "center_of_mass": self.get_center_of_mass(),
+            "left_leg": self.get_left_leg_anchor(),
+            "right_leg": self.get_right_leg_anchor(),
+            "left_hip": self.get_left_hip_anchor(),
+            "right_hip": self.get_right_hip_anchor(),
+        }
 
     def shift_center_of_mass(
         self,
-        offset,
-    ):
+        offset: Vec3Like,
+    ) -> None:
         """
-        Shift balance center.
+        Shift local balance center.
 
-        Useful for:
-        - walking
-        - leaning
-        - procedural balance
+        This updates metadata only.
+        BodyCore / body_rig will decide how to animate it.
         """
+        offset_vec = _coerce_point3(offset, "offset")
 
-        offset = np.array(offset, dtype=float)
+        self.center_of_mass = self.center_of_mass + offset_vec
+        self.transform_node.set_center_point(self.center_of_mass)
 
-        self.center_of_mass += offset
-
-        self.transform_node.set_center_point(
-            self.center_of_mass
-        )
-
-    # =====================================================
-    # RESET
-    # =====================================================
-
-    def reset_balance(self):
+    def reset_balance(self) -> None:
         """
         Reset center-of-mass shift.
         """
+        self.center_of_mass = zero_point()
+        self.transform_node.set_center_point(self.center_of_mass)
 
-        self.center_of_mass = vec3()
-
-        self.transform_node.set_center_point(
-            self.center_of_mass
-        )
-
-    # =====================================================
-    # DEBUG PRINT
-    # =====================================================
-
-    def debug_print(self):
+    def debug_print(self) -> None:
         print("========== HIP DEBUG ==========")
         print("Name:", self.joint_name)
         print("Center:", self.center_of_mass)
+        print("Body Anchor:", self.body_anchor)
         print("Left Anchor:", self.left_leg_anchor)
         print("Right Anchor:", self.right_leg_anchor)
         print("================================")
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
-            f"HipJoint("
-            f"name='{self.joint_name}'"
-            f")"
+            "HipJoint("
+            f"name={self.joint_name!r}"
+            ")"
         )
 
 
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
-
 def build_hip_joint(
-    config: HipJointConfig | None = None,
+    *,
+    position: Optional[Vec3Like] = None,
+    config: Optional[HipJointConfig] = None,
+    debug_enabled: Optional[bool] = None,
 ) -> HipJoint:
     """
-    Create production-ready hip joint.
+    Create hip joint / pelvis connector.
     """
+    if debug_enabled is None:
+        debug_enabled = DEBUG_MODE
 
-    return HipJoint(
+    if LOG_CREATURE_BUILD:
+        logger.info("Building hip joint")
+
+    joint = HipJoint(
         config=config,
+        name=creature_part_name(PELVIS_NAME),
+        position=position,
+        debug_enabled=debug_enabled,
     )
+
+    if LOG_CREATURE_BUILD:
+        logger.info("Hip joint created successfully")
+
+    return joint
 
 
 def build_debug_hip_joint(
-    config: HipJointConfig | None = None,
+    *,
+    position: Optional[Vec3Like] = None,
+    config: Optional[HipJointConfig] = None,
 ) -> HipJoint:
     """
-    Create hip joint with debug enabled.
+    Create debug-enabled hip joint.
     """
+    return build_hip_joint(
+        position=position,
+        config=config,
+        debug_enabled=True,
+    )
 
-    joint = HipJoint(config=config)
 
-    joint.enable_debug()
-
-    return joint
+__all__ = [
+    "Vector3",
+    "Vec3Like",
+    "HipJointConfig",
+    "HipJoint",
+    "build_hip_joint",
+    "build_debug_hip_joint",
+]

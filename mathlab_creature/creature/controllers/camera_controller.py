@@ -1,34 +1,13 @@
-# File: mathlab_creature/creature/controllers/camera_controller.py
-
 """
-mathlab_creature/creature/controllers/camera_controller.py
+Camera controller for mathlab-mylinehub-creature.
 
-Production-grade cinematic camera controller
-for creature-focused animation systems.
+Controls camera framing for one connected creature.
 
-Core Responsibilities
----------------------
-- follow creature
-- orbit camera
-- zoom control
-- cinematic shots
-- framing
-- tracking
-- smoothing
-- procedural camera motion
-
-IMPORTANT:
-This version is FIXED for ManimGL v1.7.2
-
-Previous issue:
-----------------
-MovingCameraScene does NOT exist in installed manimgl package.
-
-This file now:
-- removes incompatible imports
-- works with current ManimGL
-- keeps architecture intact
-- keeps cinematic system intact
+Architecture rule:
+- camera_controller.py does not move creature parts
+- camera_controller.py reads BodyRig state only
+- camera_controller.py controls ManimGL camera frame only
+- compatible with ManimGL camera.frame when available
 """
 
 from __future__ import annotations
@@ -40,81 +19,50 @@ import numpy as np
 
 from manimlib import Scene
 
-from mathlab_creature.core.transforms import (
-    vec3,
-)
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import point
+from mathlab_creature.core.geometry import zero_vector
+from mathlab_creature.core.kinematics import clamp
+from mathlab_creature.core.kinematics import damp
+from mathlab_creature.core.kinematics import damp_vector
+from mathlab_creature.creature.rigs.body_rig import BodyRig
 
-from mathlab_creature.core.kinematics import (
-    damp_vector,
-    damp,
-    clamp,
-)
-
-from mathlab_creature.creature.rigs.body_rig import (
-    BodyRig,
-)
-
-
-# =========================================================
-# ENUMS
-# =========================================================
 
 class CameraMode(str, Enum):
-
     STATIC = "static"
-
     FOLLOW = "follow"
-
     ORBIT = "orbit"
-
     LOOK_AT = "look_at"
-
     CINEMATIC = "cinematic"
-
     LOCKED = "locked"
 
 
-# =========================================================
-# CONFIG
-# =========================================================
-
 @dataclass
 class CameraControllerConfig:
-
     follow_smoothing: float = 6.0
-
     zoom_smoothing: float = 5.0
 
     orbit_speed: float = 0.8
+    orbit_radius: float = 4.0
+    orbit_height: float = 1.5
 
     default_zoom: float = 1.0
-
     minimum_zoom: float = 0.3
-
     maximum_zoom: float = 4.0
 
     follow_offset_x: float = 0.0
-
     follow_offset_y: float = 1.2
-
     follow_offset_z: float = 0.0
 
-    orbit_radius: float = 4.0
-
-    orbit_height: float = 1.5
-
     cinematic_drift_strength: float = 0.08
-
     predictive_follow_strength: float = 0.25
 
+    base_frame_width: float = 14.0
 
-# =========================================================
-# CAMERA CONTROLLER
-# =========================================================
 
 class CameraController:
     """
-    Production-grade cinematic camera system.
+    Cinematic camera controller.
     """
 
     def __init__(
@@ -122,132 +70,84 @@ class CameraController:
         scene: Scene,
         body_rig: BodyRig,
         config: CameraControllerConfig | None = None,
-    ):
+    ) -> None:
+        if not isinstance(body_rig, BodyRig):
+            raise TypeError(
+                f"body_rig must be BodyRig, got {type(body_rig).__name__}"
+            )
+
         self.scene = scene
-
         self.body_rig = body_rig
-
-        self.config = (
-            config
-            or CameraControllerConfig()
-        )
-
-        # -------------------------------------------------
-        # MODE
-        # -------------------------------------------------
+        self.config = config or CameraControllerConfig()
 
         self.mode = CameraMode.FOLLOW
 
-        # -------------------------------------------------
-        # POSITION
-        # -------------------------------------------------
+        self.current_position = zero_vector()
+        self.target_position = zero_vector()
 
-        self.current_position = vec3()
-
-        self.target_position = vec3()
-
-        self.current_zoom = (
-            self.config.default_zoom
-        )
-
-        self.target_zoom = (
-            self.config.default_zoom
-        )
-
-        # -------------------------------------------------
-        # ORBIT
-        # -------------------------------------------------
+        self.current_zoom = self.config.default_zoom
+        self.target_zoom = self.config.default_zoom
 
         self.orbit_angle = 0.0
-
-        self.orbit_target = vec3()
-
-        # -------------------------------------------------
-        # LOOK TARGET
-        # -------------------------------------------------
-
-        self.look_target = vec3()
-
-        # -------------------------------------------------
-        # CINEMATIC
-        # -------------------------------------------------
+        self.look_target = zero_vector()
 
         self.cinematic_time = 0.0
-
-        self.cinematic_drift = vec3()
-
-    # =====================================================
-    # UPDATE
-    # =====================================================
 
     def update(
         self,
         delta_time: float,
-    ):
+    ) -> None:
+        delta_time = float(delta_time)
+
+        if delta_time <= 0:
+            return
+
+        if self.mode == CameraMode.LOCKED:
+            return
 
         self.cinematic_time += delta_time
 
-        # -------------------------------------------------
-        # MODES
-        # -------------------------------------------------
-
         if self.mode == CameraMode.FOLLOW:
-
-            self._update_follow(
-                delta_time
-            )
+            self._update_follow(delta_time)
 
         elif self.mode == CameraMode.ORBIT:
-
-            self._update_orbit(
-                delta_time
-            )
+            self._update_orbit(delta_time)
 
         elif self.mode == CameraMode.LOOK_AT:
-
-            self._update_look_at(
-                delta_time
-            )
+            self._update_look_at(delta_time)
 
         elif self.mode == CameraMode.CINEMATIC:
+            self._update_cinematic(delta_time)
 
-            self._update_cinematic(
-                delta_time
-            )
-
-        # -------------------------------------------------
-        # ZOOM
-        # -------------------------------------------------
-
-        self._update_zoom(
-            delta_time
-        )
-
-        # -------------------------------------------------
-        # APPLY
-        # -------------------------------------------------
-
+        self._update_zoom(delta_time)
         self._apply_camera()
 
-    # =====================================================
-    # FOLLOW
-    # =====================================================
+    def _follow_offset(
+        self,
+    ):
+        return point(
+            self.config.follow_offset_x,
+            self.config.follow_offset_y,
+            self.config.follow_offset_z,
+        )
 
-    def follow_creature(self):
-
+    def follow_creature(
+        self,
+    ) -> None:
         self.mode = CameraMode.FOLLOW
 
     def _update_follow(
         self,
         delta_time: float,
-    ):
-
-        creature_position = (
-            self.body_rig.current_position
+    ) -> None:
+        creature_position = as_vec3(
+            self.body_rig.current_position,
+            name="body_rig.current_position",
         )
 
-        velocity = (
-            self.body_rig.current_velocity
+        velocity = as_vec3(
+            self.body_rig.current_velocity,
+            name="body_rig.current_velocity",
         )
 
         predictive_offset = (
@@ -255,15 +155,9 @@ class CameraController:
             * self.config.predictive_follow_strength
         )
 
-        offset = vec3(
-            self.config.follow_offset_x,
-            self.config.follow_offset_y,
-            self.config.follow_offset_z,
-        )
-
         self.target_position = (
             creature_position
-            + offset
+            + self._follow_offset()
             + predictive_offset
         )
 
@@ -274,32 +168,30 @@ class CameraController:
             delta_time,
         )
 
-    # =====================================================
-    # ORBIT
-    # =====================================================
-
     def orbit_creature(
         self,
         radius: float | None = None,
-    ):
-
+    ) -> None:
         self.mode = CameraMode.ORBIT
 
         if radius is not None:
-            self.config.orbit_radius = radius
+            self.config.orbit_radius = max(
+                0.0,
+                float(radius),
+            )
 
     def _update_orbit(
         self,
         delta_time: float,
-    ):
-
+    ) -> None:
         self.orbit_angle += (
             delta_time
             * self.config.orbit_speed
         )
 
-        target = (
-            self.body_rig.current_position
+        target = as_vec3(
+            self.body_rig.current_position,
+            name="body_rig.current_position",
         )
 
         x = (
@@ -314,10 +206,9 @@ class CameraController:
 
         self.target_position = (
             target
-            + vec3(
+            + point(
                 x,
-                y
-                + self.config.orbit_height,
+                y + self.config.orbit_height,
                 0.0,
             )
         )
@@ -329,18 +220,13 @@ class CameraController:
             delta_time,
         )
 
-    # =====================================================
-    # LOOK AT
-    # =====================================================
-
     def look_at(
         self,
         world_position,
-    ):
-
-        self.look_target = np.array(
+    ) -> None:
+        self.look_target = as_vec3(
             world_position,
-            dtype=float,
+            name="world_position",
         )
 
         self.mode = CameraMode.LOOK_AT
@@ -348,11 +234,8 @@ class CameraController:
     def _update_look_at(
         self,
         delta_time: float,
-    ):
-
-        self.target_position = (
-            self.look_target
-        )
+    ) -> None:
+        self.target_position = self.look_target
 
         self.current_position = damp_vector(
             self.current_position,
@@ -361,46 +244,31 @@ class CameraController:
             delta_time,
         )
 
-    # =====================================================
-    # CINEMATIC
-    # =====================================================
-
-    def cinematic_mode(self):
-
+    def cinematic_mode(
+        self,
+    ) -> None:
         self.mode = CameraMode.CINEMATIC
 
     def _update_cinematic(
         self,
         delta_time: float,
-    ):
-
-        creature_position = (
-            self.body_rig.current_position
+    ) -> None:
+        creature_position = as_vec3(
+            self.body_rig.current_position,
+            name="body_rig.current_position",
         )
 
-        drift = vec3(
-            np.sin(
-                self.cinematic_time * 0.35
-            )
+        drift = point(
+            np.sin(self.cinematic_time * 0.35)
             * self.config.cinematic_drift_strength,
-
-            np.cos(
-                self.cinematic_time * 0.28
-            )
+            np.cos(self.cinematic_time * 0.28)
             * self.config.cinematic_drift_strength,
-
             0.0,
-        )
-
-        offset = vec3(
-            self.config.follow_offset_x,
-            self.config.follow_offset_y,
-            self.config.follow_offset_z,
         )
 
         self.target_position = (
             creature_position
-            + offset
+            + self._follow_offset()
             + drift
         )
 
@@ -411,17 +279,12 @@ class CameraController:
             delta_time,
         )
 
-    # =====================================================
-    # ZOOM
-    # =====================================================
-
     def set_zoom(
         self,
         zoom_value: float,
-    ):
-
+    ) -> None:
         self.target_zoom = clamp(
-            zoom_value,
+            float(zoom_value),
             self.config.minimum_zoom,
             self.config.maximum_zoom,
         )
@@ -429,26 +292,23 @@ class CameraController:
     def zoom_in(
         self,
         amount: float = 0.1,
-    ):
-
+    ) -> None:
         self.set_zoom(
-            self.target_zoom - amount
+            self.target_zoom - float(amount),
         )
 
     def zoom_out(
         self,
         amount: float = 0.1,
-    ):
-
+    ) -> None:
         self.set_zoom(
-            self.target_zoom + amount
+            self.target_zoom + float(amount),
         )
 
     def _update_zoom(
         self,
         delta_time: float,
-    ):
-
+    ) -> None:
         self.current_zoom = damp(
             self.current_zoom,
             self.target_zoom,
@@ -456,180 +316,128 @@ class CameraController:
             delta_time,
         )
 
-    # =====================================================
-    # APPLY CAMERA
-    # =====================================================
-
-    def _apply_camera(self):
+    def _apply_camera(
+        self,
+    ) -> None:
         """
-        Push transforms into ManimGL camera.
+        Push transforms into ManimGL camera when available.
         """
-
-        # -------------------------------------------------
-        # SAFETY
-        # -------------------------------------------------
-
-        if not hasattr(
-            self.scene,
-            "camera",
-        ):
+        if not hasattr(self.scene, "camera"):
             return
 
-        if not hasattr(
-            self.scene.camera,
-            "frame",
-        ):
+        if not hasattr(self.scene.camera, "frame"):
             return
 
         frame = self.scene.camera.frame
 
-        # -------------------------------------------------
-        # POSITION
-        # -------------------------------------------------
-
         frame.move_to(
-            self.current_position
-        )
-
-        # -------------------------------------------------
-        # ZOOM
-        # -------------------------------------------------
-
-        frame.set_width(
-            14 * self.current_zoom
-        )
-
-    # =====================================================
-    # SHOTS
-    # =====================================================
-
-    def wide_shot(self):
-
-        self.set_zoom(1.8)
-
-    def medium_shot(self):
-
-        self.set_zoom(1.0)
-
-    def close_up(self):
-
-        self.set_zoom(0.55)
-
-    # =====================================================
-    # LOCK
-    # =====================================================
-
-    def lock_camera(self):
-
-        self.mode = CameraMode.LOCKED
-
-    def unlock_camera(self):
-
-        self.mode = CameraMode.FOLLOW
-
-    # =====================================================
-    # STATE
-    # =====================================================
-
-    def get_mode(self):
-
-        return self.mode
-
-    def get_zoom(self):
-
-        return self.current_zoom
-
-    def get_position(self):
-
-        return np.array(
-            self.current_position
-        )
-
-    # =====================================================
-    # RESET
-    # =====================================================
-
-    def reset(self):
-
-        self.current_position = vec3()
-
-        self.target_position = vec3()
-
-        self.current_zoom = (
-            self.config.default_zoom
-        )
-
-        self.target_zoom = (
-            self.config.default_zoom
-        )
-
-        self.orbit_angle = 0.0
-
-        self.mode = CameraMode.FOLLOW
-
-    # =====================================================
-    # DEBUG
-    # =====================================================
-
-    def debug_print(self):
-
-        print(
-            "========= CAMERA CONTROLLER ========="
-        )
-
-        print(
-            "Mode:",
-            self.mode,
-        )
-
-        print(
-            "Position:",
             self.current_position,
         )
 
-        print(
-            "Zoom:",
-            self.current_zoom,
+        frame.set_width(
+            self.config.base_frame_width
+            * self.current_zoom
         )
 
-        print(
-            "Orbit Angle:",
-            self.orbit_angle,
+    def wide_shot(
+        self,
+    ) -> None:
+        self.set_zoom(1.8)
+
+    def medium_shot(
+        self,
+    ) -> None:
+        self.set_zoom(1.0)
+
+    def close_up(
+        self,
+    ) -> None:
+        self.set_zoom(0.55)
+
+    def lock_camera(
+        self,
+    ) -> None:
+        self.mode = CameraMode.LOCKED
+
+    def unlock_camera(
+        self,
+    ) -> None:
+        self.mode = CameraMode.FOLLOW
+
+    def static_camera(
+        self,
+    ) -> None:
+        self.mode = CameraMode.STATIC
+
+    def get_mode(
+        self,
+    ) -> CameraMode:
+        return self.mode
+
+    def get_zoom(
+        self,
+    ) -> float:
+        return float(self.current_zoom)
+
+    def get_position(
+        self,
+    ):
+        return np.array(
+            self.current_position,
+            dtype=float,
         )
 
-        print(
-            "====================================="
-        )
+    def reset(
+        self,
+    ) -> None:
+        self.current_position = zero_vector()
+        self.target_position = zero_vector()
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
+        self.current_zoom = self.config.default_zoom
+        self.target_zoom = self.config.default_zoom
 
-    def __repr__(self):
+        self.orbit_angle = 0.0
+        self.look_target = zero_vector()
+        self.cinematic_time = 0.0
 
+        self.mode = CameraMode.FOLLOW
+
+    def debug_print(
+        self,
+    ) -> None:
+        print("========= CAMERA CONTROLLER =========")
+        print("Mode:", self.mode)
+        print("Position:", self.current_position)
+        print("Zoom:", self.current_zoom)
+        print("Orbit Angle:", self.orbit_angle)
+        print("=====================================")
+
+    def __repr__(
+        self,
+    ) -> str:
         return (
             f"CameraController("
-            f"mode='{self.mode}', "
+            f"mode={self.mode!r}, "
             f"zoom={round(self.current_zoom, 3)}"
             f")"
         )
 
-
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
 
 def build_camera_controller(
     scene: Scene,
     body_rig: BodyRig,
     config: CameraControllerConfig | None = None,
 ) -> CameraController:
-    """
-    Create production-grade cinematic camera controller.
-    """
-
     return CameraController(
         scene=scene,
         body_rig=body_rig,
         config=config,
     )
+
+
+__all__ = [
+    "CameraMode",
+    "CameraControllerConfig",
+    "CameraController",
+    "build_camera_controller",
+]

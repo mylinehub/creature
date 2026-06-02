@@ -1,33 +1,13 @@
-# File: mathlab_creature/creature/actions/point_action.py
-
 """
-Point action helpers for mathlab-mylinehub-creature
-with cinematic procedural audio integration.
+Point action for mathlab-mylinehub-creature.
 
-This file provides a simple pointing animation for the creature.
+This file builds pointing animations for one connected creature.
 
-Features:
-- extend one arm into a pointing pose
-- optional hold timing
-- optional return to neutral
-- procedural point cue sound
-- educational presentation feel
-- optional sound toggle
-- cinematic gesture timing
-- safe audio integration
-
-Design Goals:
-- readable movement
-- educational mascot style
-- expressive but subtle
-- production-ready
-- future extensible
-
-Audio Goals:
-- tiny attention cue
-- educational focus sound
-- soft gesture support
-- alive but not annoying
+Architecture rule:
+- point_action.py does not build arms or hands
+- point_action.py works through ArmRig, arm rig group, or rig map
+- point_action.py moves arm system only through rig-owned arm/hand references
+- audio is optional and safely ignored if audio modules are unavailable
 """
 
 from __future__ import annotations
@@ -36,11 +16,10 @@ from math import radians
 
 from manimlib import AnimationGroup
 from manimlib import ApplyMethod
+from manimlib import Succession
 
-from mathlab_creature.config.defaults import (
-    DEBUG_MODE,
-    LOG_ANIMATION_EVENTS,
-)
+from mathlab_creature.config.defaults import DEBUG_MODE
+from mathlab_creature.config.defaults import LOG_ANIMATION_EVENTS
 
 from mathlab_creature.config.timings import (
     POINT_HOLD_TIME,
@@ -48,69 +27,33 @@ from mathlab_creature.config.timings import (
     POINT_RETURN_TIME,
 )
 
-from mathlab_creature.core.logger import (
-    get_logger,
-)
+from mathlab_creature.core.logger import get_logger
 
-from mathlab_creature.core.audio.helpers import (
-    maybe_play_sound,
-)
-
-from mathlab_creature.core.audio.procedural import (
-    play_point_sound,
-)
 
 logger = get_logger(__name__)
 
 
-# ============================================================
-# INTERNAL CONSTANTS
-# ============================================================
-
-_ALLOWED_SIDES = {
-    "left",
-    "right",
-}
-
-_REQUIRED_RIG_KEYS = (
-    "arms",
-    "group",
-)
+try:
+    from mathlab_creature.core.audio.helpers import maybe_play_sound
+    from mathlab_creature.core.audio.procedural import play_point_sound
+except Exception:
+    maybe_play_sound = None
+    play_point_sound = None
 
 
-# ============================================================
-# INTERNAL HELPERS
-# ============================================================
+_ALLOWED_SIDES = {"left", "right"}
 
-def _validate_numeric(
-    name: str,
-    value: float | int,
-) -> float:
-    """
-    Ensure numeric value.
-    """
 
+def _validate_numeric(name: str, value: float | int) -> float:
     if not isinstance(value, (int, float)):
         raise TypeError(
-            f"{name} must be numeric, "
-            f"got {type(value).__name__}"
+            f"{name} must be numeric, got {type(value).__name__}"
         )
-
     return float(value)
 
 
-def _validate_positive(
-    name: str,
-    value: float | int,
-) -> float:
-    """
-    Ensure positive numeric value.
-    """
-
-    value = _validate_numeric(
-        name,
-        value,
-    )
+def _validate_positive(name: str, value: float | int) -> float:
+    value = _validate_numeric(name, value)
 
     if value <= 0:
         raise ValueError(
@@ -120,92 +63,118 @@ def _validate_positive(
     return value
 
 
-def _normalize_side(
-    side: str,
-) -> str:
-    """
-    Normalize and validate side.
-    """
-
+def _normalize_side(side: str) -> str:
     if not isinstance(side, str):
         raise TypeError(
-            f"side must be string, "
-            f"got {type(side).__name__}"
+            f"side must be str, got {type(side).__name__}"
         )
 
     normalized = side.strip().lower()
 
     if normalized not in _ALLOWED_SIDES:
         raise ValueError(
-            f"side must be one of "
-            f"{_ALLOWED_SIDES}, "
-            f"got {side!r}"
+            f"side must be one of {_ALLOWED_SIDES}, got {side!r}"
         )
 
     return normalized
 
 
-def _validate_rig(
-    rig: dict,
-) -> None:
+def _resolve_arm_rig_group(rig):
     """
-    Validate point-action rig shape.
+    Accept:
+    - ArmRig
+    - arm rig group
+    - rig map
     """
+    if rig is None:
+        raise ValueError("rig must not be None")
 
-    if not isinstance(rig, dict):
-        raise TypeError(
-            f"rig must be dict, "
-            f"got {type(rig).__name__}"
-        )
+    if hasattr(rig, "get_group"):
+        return rig.get_group()
 
-    missing = [
-        key
-        for key in _REQUIRED_RIG_KEYS
-        if key not in rig
-    ]
+    if isinstance(rig, dict):
+        if "rig" in rig and hasattr(rig["rig"], "get_group"):
+            return rig["rig"].get_group()
 
-    if missing:
-        raise KeyError(
-            f"rig missing required keys: {missing}"
-        )
+        if "group" in rig:
+            return rig["group"]
+
+    return rig
 
 
-def _get_arm_and_hand(
-    rig: dict,
-    side: str,
-):
-    """
-    Return arm and hand for side.
-    """
-
-    _validate_rig(rig)
-
+def _get_arm_system(rig, side: str):
     side = _normalize_side(side)
 
-    if side == "right":
+    if hasattr(rig, "get_left_system") and side == "left":
+        return rig.get_left_system()
 
-        arm = rig["arms"]["right_arm"]
+    if hasattr(rig, "get_right_system") and side == "right":
+        return rig.get_right_system()
 
-        hand = rig["arms"]["right_hand"]
+    group = _resolve_arm_rig_group(rig)
 
-    else:
+    if side == "left":
+        if hasattr(group, "left_system"):
+            return group.left_system
+        return group[0]
 
-        arm = rig["arms"]["left_arm"]
+    if hasattr(group, "right_system"):
+        return group.right_system
 
-        hand = rig["arms"]["left_hand"]
+    return group[1]
+
+
+def _get_arm_and_hand(rig, side: str):
+    system = _get_arm_system(rig, side)
+
+    arm = getattr(system, "arm_line", None)
+    if arm is None:
+        arm = getattr(system, "arm", None)
+
+    hand = getattr(system, "hand", None)
+
+    if arm is None:
+        raise AttributeError(
+            "arm system must have arm_line or arm metadata"
+        )
+
+    if hand is None:
+        raise AttributeError(
+            "arm system must have hand metadata"
+        )
 
     return arm, hand
 
 
-def _rotation_sign_for_side(
-    side: str,
-) -> float:
-    """
-    Return directional rotation sign.
-    """
+def _get_arm_start(arm):
+    if hasattr(arm, "get_start"):
+        return arm.get_start()
 
+    if hasattr(arm, "arm_start"):
+        return arm.arm_start
+
+    raise AttributeError(
+        "arm must provide get_start() or arm_start"
+    )
+
+
+def _get_arm_end(arm):
+    if hasattr(arm, "get_end"):
+        return arm.get_end()
+
+    if hasattr(arm, "arm_end"):
+        return arm.arm_end
+
+    if hasattr(arm, "hand_anchor"):
+        return arm.hand_anchor
+
+    raise AttributeError(
+        "arm must provide get_end(), arm_end, or hand_anchor"
+    )
+
+
+def _rotation_sign_for_side(side: str) -> float:
     side = _normalize_side(side)
-
     return -1.0 if side == "right" else 1.0
 
 
@@ -215,10 +184,6 @@ def _hand_sync_animation(
     *,
     run_time: float,
 ):
-    """
-    Sync hand to arm endpoint.
-    """
-
     run_time = _validate_positive(
         "run_time",
         run_time,
@@ -226,7 +191,7 @@ def _hand_sync_animation(
 
     return ApplyMethod(
         hand.move_to,
-        arm.get_end(),
+        _get_arm_end(arm),
         run_time=run_time,
     )
 
@@ -237,10 +202,6 @@ def _arm_rotate_animation(
     *,
     run_time: float,
 ):
-    """
-    Build shoulder rotation animation.
-    """
-
     run_time = _validate_positive(
         "run_time",
         run_time,
@@ -254,21 +215,22 @@ def _arm_rotate_animation(
     return ApplyMethod(
         arm.rotate,
         radians(degrees),
-        {"about_point": arm.get_start()},
+        {"about_point": _get_arm_start(arm)},
         run_time=run_time,
     )
 
 
-# ============================================================
-# AUDIO HELPERS
-# ============================================================
-
 def _play_point_audio(
     with_sound: bool = True,
 ):
-    """
-    Trigger procedural point sound safely.
-    """
+    if not with_sound:
+        return
+
+    if maybe_play_sound is None:
+        return
+
+    if play_point_sound is None:
+        return
 
     maybe_play_sound(
         with_sound,
@@ -276,27 +238,13 @@ def _play_point_audio(
     )
 
 
-# ============================================================
-# PUBLIC BUILDERS
-# ============================================================
-
 def build_point_reach_animation(
-    rig: dict,
+    rig,
     *,
     side: str = "right",
     point_degrees: float = 80.0,
     with_sound: bool = True,
 ):
-    """
-    Build pointing reach animation.
-
-    Includes:
-    - strong readable gesture
-    - educational cue sound
-    """
-
-    _validate_rig(rig)
-
     side = _normalize_side(side)
 
     point_degrees = _validate_positive(
@@ -305,17 +253,12 @@ def build_point_reach_animation(
     )
 
     if LOG_ANIMATION_EVENTS:
-
         logger.info(
             "Building point reach animation | side=%s point_degrees=%.3f with_sound=%s",
             side,
             point_degrees,
             with_sound,
         )
-
-    # --------------------------------------------------------
-    # AUDIO
-    # --------------------------------------------------------
 
     _play_point_audio(
         with_sound=with_sound,
@@ -332,20 +275,11 @@ def build_point_reach_animation(
     )
 
     if DEBUG_MODE:
-
         logger.debug(
             "Point reach setup | side=%s arm=%s hand=%s signed_degrees=%.3f",
             side,
-            getattr(
-                arm,
-                "name",
-                "arm",
-            ),
-            getattr(
-                hand,
-                "name",
-                "hand",
-            ),
+            getattr(arm, "name", "arm"),
+            getattr(hand, "name", "hand"),
             signed_degrees,
         )
 
@@ -365,63 +299,29 @@ def build_point_reach_animation(
 
 
 def build_point_hold_animation(
-    rig: dict,
     *,
     hold_time: float = POINT_HOLD_TIME,
 ):
-    """
-    Build optional point hold.
-    """
-
-    _validate_rig(rig)
-
     hold_time = _validate_positive(
         "hold_time",
         hold_time,
     )
 
-    if LOG_ANIMATION_EVENTS:
-
-        logger.info(
-            "Building point hold animation | hold_time=%.3f",
-            hold_time,
-        )
-
-    creature_group = rig["group"]
-
-    return ApplyMethod(
-        creature_group.shift,
-        [0.0, 0.0, 0.0],
-        run_time=hold_time,
-    )
+    return AnimationGroup()
 
 
 def build_point_return_animation(
-    rig: dict,
+    rig,
     *,
     side: str = "right",
     point_degrees: float = 80.0,
 ):
-    """
-    Return arm toward neutral pose.
-    """
-
-    _validate_rig(rig)
-
     side = _normalize_side(side)
 
     point_degrees = _validate_positive(
         "point_degrees",
         point_degrees,
     )
-
-    if LOG_ANIMATION_EVENTS:
-
-        logger.info(
-            "Building point return animation | side=%s point_degrees=%.3f",
-            side,
-            point_degrees,
-        )
 
     arm, hand = _get_arm_and_hand(
         rig,
@@ -449,7 +349,7 @@ def build_point_return_animation(
 
 
 def build_point_animation(
-    rig: dict,
+    rig,
     *,
     side: str = "right",
     point_degrees: float = 80.0,
@@ -458,22 +358,6 @@ def build_point_animation(
     return_to_neutral: bool = False,
     with_sound: bool = True,
 ):
-    """
-    Build complete point action.
-
-    Flow:
-    - point reach
-    - optional hold
-    - optional return
-
-    Features:
-    - educational presentation feel
-    - optional procedural sound
-    - cinematic gesture timing
-    """
-
-    _validate_rig(rig)
-
     side = _normalize_side(side)
 
     point_degrees = _validate_positive(
@@ -481,39 +365,10 @@ def build_point_animation(
         point_degrees,
     )
 
-    if not isinstance(hold, bool):
-        raise TypeError(
-            f"hold must be bool, "
-            f"got {type(hold).__name__}"
-        )
-
-    if not isinstance(return_to_neutral, bool):
-        raise TypeError(
-            "return_to_neutral must be bool"
-        )
-
-    if not isinstance(with_sound, bool):
-        raise TypeError(
-            f"with_sound must be bool, "
-            f"got {type(with_sound).__name__}"
-        )
-
     hold_time = _validate_positive(
         "hold_time",
         hold_time,
     )
-
-    if LOG_ANIMATION_EVENTS:
-
-        logger.info(
-            "Building full point animation | side=%s point_degrees=%.3f hold=%s hold_time=%.3f return_to_neutral=%s with_sound=%s",
-            side,
-            point_degrees,
-            hold,
-            hold_time,
-            return_to_neutral,
-            with_sound,
-        )
 
     animations = [
         build_point_reach_animation(
@@ -525,16 +380,13 @@ def build_point_animation(
     ]
 
     if hold:
-
         animations.append(
             build_point_hold_animation(
-                rig,
                 hold_time=hold_time,
             )
         )
 
     if return_to_neutral:
-
         animations.append(
             build_point_return_animation(
                 rig,
@@ -543,7 +395,14 @@ def build_point_animation(
             )
         )
 
-    return AnimationGroup(
+    return Succession(
         *animations,
-        lag_ratio=0.0,
     )
+
+
+__all__ = [
+    "build_point_reach_animation",
+    "build_point_hold_animation",
+    "build_point_return_animation",
+    "build_point_animation",
+]

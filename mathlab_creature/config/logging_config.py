@@ -47,13 +47,9 @@ ENABLE_LOGGING: Final[bool] = True
 ENABLE_CONSOLE_LOGGING: Final[bool] = True
 ENABLE_FILE_LOGGING: Final[bool] = False
 
-# Prevent duplicate handler attachment when setup is called multiple times.
 CLEAR_EXISTING_HANDLERS_ON_SETUP: Final[bool] = True
-
-# Control whether project loggers propagate to the root logger.
 ENABLE_LOGGER_PROPAGATION: Final[bool] = False
 
-# When file logging is enabled later, this path can be used.
 LOG_FILE_PATH: Final[str] = "logs/project.log"
 LOG_FILE_ENCODING: Final[str] = "utf-8"
 LOG_FILE_MODE: Final[str] = "a"
@@ -69,16 +65,9 @@ LOG_LEVEL_WARNING: Final[int] = logging.WARNING
 LOG_LEVEL_ERROR: Final[int] = logging.ERROR
 LOG_LEVEL_CRITICAL: Final[int] = logging.CRITICAL
 
-# Primary default log level.
 DEFAULT_LOG_LEVEL: Final[int] = LOG_LEVEL_INFO
-
-# Use this for detailed development output.
 DEVELOPMENT_LOG_LEVEL: Final[int] = LOG_LEVEL_DEBUG
-
-# Use this for less noisy stable usage.
 PRODUCTION_LOG_LEVEL: Final[int] = LOG_LEVEL_WARNING
-
-# Useful for tests where info noise may be unnecessary.
 TEST_LOG_LEVEL: Final[int] = LOG_LEVEL_WARNING
 
 
@@ -97,7 +86,9 @@ FILE_HANDLER_NAME: Final[str] = "file"
 LOG_FORMAT_STANDARD: Final[str] = (
     "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 )
+
 LOG_FORMAT_SIMPLE: Final[str] = "%(levelname)s | %(message)s"
+
 LOG_FORMAT_DEBUG: Final[str] = (
     "%(asctime)s | %(levelname)-8s | %(name)s | "
     "%(filename)s:%(lineno)d | %(message)s"
@@ -113,13 +104,19 @@ LOG_DATE_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
 LOG_CONFIG_EVENTS: Final[bool] = True
 LOG_SCENE_EVENTS: Final[bool] = True
 LOG_CREATURE_BUILD: Final[bool] = True
+LOG_ROOT_EVENTS: Final[bool] = True
+LOG_BODY_CORE_EVENTS: Final[bool] = True
+LOG_SKELETON_EVENTS: Final[bool] = True
 LOG_PART_BUILD: Final[bool] = True
-LOG_POSE_EVENTS: Final[bool] = True
+LOG_RIG_EVENTS: Final[bool] = True
 LOG_ACTION_EVENTS: Final[bool] = True
-LOG_PROP_EVENTS: Final[bool] = True
+LOG_CONTROLLER_EVENTS: Final[bool] = True
+LOG_AUDIO_EVENTS: Final[bool] = True
 LOG_RENDER_EVENTS: Final[bool] = True
 LOG_LAYOUT_EVENTS: Final[bool] = False
 LOG_GEOMETRY_EVENTS: Final[bool] = False
+LOG_TRANSFORM_EVENTS: Final[bool] = False
+LOG_KINEMATICS_EVENTS: Final[bool] = False
 
 
 # ============================================================
@@ -153,15 +150,19 @@ def get_mode_log_level(mode: str) -> int:
 
     if mode_normalized == MODE_DEVELOPMENT:
         return DEVELOPMENT_LOG_LEVEL
+
     if mode_normalized == MODE_PRODUCTION:
         return PRODUCTION_LOG_LEVEL
+
     if mode_normalized == MODE_TEST:
         return TEST_LOG_LEVEL
 
     return DEFAULT_LOG_LEVEL
 
 
-def build_logging_settings(mode: str = DEFAULT_LOGGING_MODE) -> Dict[str, Any]:
+def build_logging_settings(
+    mode: str = DEFAULT_LOGGING_MODE,
+) -> Dict[str, Any]:
     """
     Build a plain dictionary of shared logging settings.
 
@@ -192,6 +193,24 @@ def build_logging_settings(mode: str = DEFAULT_LOGGING_MODE) -> Dict[str, Any]:
         "show_debug_banner": SHOW_DEBUG_BANNER,
         "raise_on_log_setup_error": RAISE_ON_LOG_SETUP_ERROR,
         "warn_on_repeated_setup": WARN_ON_REPEATED_SETUP,
+        "events": {
+            "config": LOG_CONFIG_EVENTS,
+            "scene": LOG_SCENE_EVENTS,
+            "creature_build": LOG_CREATURE_BUILD,
+            "root": LOG_ROOT_EVENTS,
+            "body_core": LOG_BODY_CORE_EVENTS,
+            "skeleton": LOG_SKELETON_EVENTS,
+            "part_build": LOG_PART_BUILD,
+            "rig": LOG_RIG_EVENTS,
+            "action": LOG_ACTION_EVENTS,
+            "controller": LOG_CONTROLLER_EVENTS,
+            "audio": LOG_AUDIO_EVENTS,
+            "render": LOG_RENDER_EVENTS,
+            "layout": LOG_LAYOUT_EVENTS,
+            "geometry": LOG_GEOMETRY_EVENTS,
+            "transform": LOG_TRANSFORM_EVENTS,
+            "kinematics": LOG_KINEMATICS_EVENTS,
+        },
     }
 
 
@@ -232,13 +251,19 @@ __all__ = [
     "LOG_CONFIG_EVENTS",
     "LOG_SCENE_EVENTS",
     "LOG_CREATURE_BUILD",
+    "LOG_ROOT_EVENTS",
+    "LOG_BODY_CORE_EVENTS",
+    "LOG_SKELETON_EVENTS",
     "LOG_PART_BUILD",
-    "LOG_POSE_EVENTS",
+    "LOG_RIG_EVENTS",
     "LOG_ACTION_EVENTS",
-    "LOG_PROP_EVENTS",
+    "LOG_CONTROLLER_EVENTS",
+    "LOG_AUDIO_EVENTS",
     "LOG_RENDER_EVENTS",
     "LOG_LAYOUT_EVENTS",
     "LOG_GEOMETRY_EVENTS",
+    "LOG_TRANSFORM_EVENTS",
+    "LOG_KINEMATICS_EVENTS",
     "SHOW_DEBUG_BANNER",
     "RAISE_ON_LOG_SETUP_ERROR",
     "WARN_ON_REPEATED_SETUP",

@@ -1,41 +1,17 @@
-# File: mathlab_creature/creature/actions/turn_action.py
-
 """
-mathlab_creature/creature/actions/turn_action.py
+Turn action for mathlab-mylinehub-creature.
 
-Production-grade procedural turning system
-with cinematic procedural audio integration.
+Controls smooth turning for one connected creature.
 
-Core Responsibilities
----------------------
-- smooth turning
-- directional rotation
-- facing control
-- rotational damping
-- balance-aware turning
-- procedural turn blending
-- procedural turn audio
-- cinematic turning rhythm
+Architecture:
 
-Design Goals
-------------
-- production-ready
-- cinematic turning
-- smooth motion
-- animation-safe
-- hierarchy-safe
-- future AI-ready
-- future 3D-ready
-- educational mascot feel
-- subtle expressive motion
+    TurnAction
+        |
+        BodyRig
+            |
+            Creature Root
 
-Audio Goals
------------
-- soft sweep
-- subtle directional cue
-- airy turn motion
-- alive but not annoying
-- not harsh robotic movement
+TurnAction never manipulates body parts directly.
 """
 
 from __future__ import annotations
@@ -44,46 +20,27 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from mathlab_creature.core.transforms import (
-    vec3,
-)
+from mathlab_creature.core.geometry import as_vec3
+from mathlab_creature.core.geometry import point
+from mathlab_creature.core.kinematics import damp
+from mathlab_creature.core.kinematics import smooth_rotate_towards
+from mathlab_creature.core.logger import get_logger
+from mathlab_creature.creature.rigs.body_rig import BodyRig
 
-from mathlab_creature.core.kinematics import (
-    shortest_angle_difference,
-    smooth_rotate_towards,
-    clamp,
-    damp,
-)
-
-from mathlab_creature.core.logger import (
-    get_logger,
-)
-
-from mathlab_creature.core.audio.helpers import (
-    maybe_play_sound,
-)
-
-from mathlab_creature.core.audio.procedural import (
-    play_turn_sound,
-)
-
-from mathlab_creature.creature.rigs.body_rig import (
-    BodyRig,
-)
 
 logger = get_logger(__name__)
 
 
-# =========================================================
-# CONFIG
-# =========================================================
+try:
+    from mathlab_creature.core.audio.helpers import maybe_play_sound
+    from mathlab_creature.core.audio.procedural import play_turn_sound
+except Exception:
+    maybe_play_sound = None
+    play_turn_sound = None
+
 
 @dataclass
 class TurnActionConfig:
-    """
-    Tunable procedural turning settings.
-    """
-
     turn_speed: float = 4.5
 
     turn_acceleration: float = 8.0
@@ -94,17 +51,11 @@ class TurnActionConfig:
 
     body_lean_strength: float = 0.14
 
-    foot_adjustment_strength: float = 0.18
-
     hip_shift_strength: float = 0.06
 
     minimum_turn_threshold: float = 0.001
 
     auto_face_movement: bool = True
-
-    # -----------------------------------------------------
-    # AUDIO SETTINGS
-    # -----------------------------------------------------
 
     enable_audio: bool = True
 
@@ -115,21 +66,11 @@ class TurnActionConfig:
     turn_sound_cooldown: float = 0.24
 
 
-# =========================================================
-# TURN ACTION
-# =========================================================
-
 class TurnAction:
     """
-    Production-grade smooth turning controller.
+    Smooth turning controller.
 
-    Features:
-    - smooth rotation
-    - cinematic facing
-    - procedural leaning
-    - rotational damping
-    - movement-aligned facing
-    - procedural audio support
+    Works through BodyRig only.
     """
 
     def __init__(
@@ -138,18 +79,18 @@ class TurnAction:
         config: TurnActionConfig | None = None,
         with_sound: bool = True,
     ):
+        if not isinstance(body_rig, BodyRig):
+            raise TypeError(
+                f"body_rig must be BodyRig, got {type(body_rig).__name__}"
+            )
+
         self.body_rig = body_rig
 
         self.config = config or TurnActionConfig()
 
-        self.with_sound = with_sound
-
-        # -------------------------------------------------
-        # INTERNAL STATE
-        # -------------------------------------------------
+        self.with_sound = bool(with_sound)
 
         self.current_angle = 0.0
-
         self.target_angle = 0.0
 
         self.current_turn_velocity = 0.0
@@ -160,121 +101,67 @@ class TurnAction:
 
         self.auto_rotate_enabled = True
 
-        # -------------------------------------------------
-        # BALANCE
-        # -------------------------------------------------
-
         self.current_body_lean = 0.0
-
         self.current_hip_shift = 0.0
 
-        # -------------------------------------------------
-        # AUDIO STATE
-        # -------------------------------------------------
-
         self.turn_sound_timer = 0.0
-
         self.turn_sound_triggered = False
-
-    # =====================================================
-    # TURN INPUT
-    # =====================================================
 
     def turn_left(
         self,
         intensity: float = 1.0,
     ):
-        """
-        Begin left turn.
-        """
-
-        self.turn_input = abs(intensity)
-
+        self.turn_input = abs(float(intensity))
         self.is_turning = True
 
     def turn_right(
         self,
         intensity: float = 1.0,
     ):
-        """
-        Begin right turn.
-        """
-
-        self.turn_input = -abs(intensity)
-
+        self.turn_input = -abs(float(intensity))
         self.is_turning = True
 
     def stop_turning(self):
-        """
-        Stop active turning.
-        """
-
         self.turn_input = 0.0
-
         self.is_turning = False
-
-    # =====================================================
-    # TARGET ROTATION
-    # =====================================================
 
     def set_target_angle(
         self,
         angle: float,
     ):
-        """
-        Explicitly set desired facing angle.
-        """
-
-        self.target_angle = angle
+        self.target_angle = float(angle)
 
     def face_direction(
         self,
         direction,
     ):
-        """
-        Rotate creature toward vector direction.
-        """
-
-        direction = np.array(
+        direction = as_vec3(
             direction,
-            dtype=float,
+            name="direction",
         )
 
         magnitude = np.linalg.norm(direction)
 
-        if magnitude <= 1e-5:
+        if magnitude <= 1e-8:
             return
 
-        direction /= magnitude
+        direction = direction / magnitude
 
-        target_angle = np.arctan2(
+        self.target_angle = np.arctan2(
             direction[1],
             direction[0],
         )
-
-        self.target_angle = target_angle
-
-    # =====================================================
-    # UPDATE
-    # =====================================================
 
     def update(
         self,
         delta_time: float,
     ):
-        """
-        Advance procedural turning.
-        """
+        delta_time = float(delta_time)
 
-        # -------------------------------------------------
-        # AUDIO TIMER
-        # -------------------------------------------------
+        if delta_time <= 0:
+            return
 
         self.turn_sound_timer += delta_time
-
-        # -------------------------------------------------
-        # TURN INPUT
-        # -------------------------------------------------
 
         if self.is_turning:
 
@@ -295,67 +182,28 @@ class TurnAction:
                 * delta_time
             )
 
-        # -------------------------------------------------
-        # ROTATION SOLVE
-        # -------------------------------------------------
-
-        self.current_angle = (
-            smooth_rotate_towards(
-                self.current_angle,
-                self.target_angle,
-                self.config.turn_speed,
-                delta_time,
-            )
+        self.current_angle = smooth_rotate_towards(
+            self.current_angle,
+            self.target_angle,
+            self.config.turn_speed,
+            delta_time,
         )
 
-        # -------------------------------------------------
-        # APPLY ROTATION
-        # -------------------------------------------------
-
-        self.body_rig.rotate_to(
-            self.current_angle
+        self.body_rig.rotate_towards(
+            self.current_angle,
+            delta_time,
         )
 
-        # -------------------------------------------------
-        # BODY LEAN
-        # -------------------------------------------------
-
-        self._update_body_lean(
-            delta_time
+        self._update_balance(
+            delta_time,
         )
 
-        # -------------------------------------------------
-        # HIP BALANCE
-        # -------------------------------------------------
+        self._update_audio()
 
-        self._update_hip_shift(
-            delta_time
-        )
-
-        # -------------------------------------------------
-        # FOOT ADJUSTMENT
-        # -------------------------------------------------
-
-        self._update_feet()
-
-        # -------------------------------------------------
-        # TURN AUDIO
-        # -------------------------------------------------
-
-        self._update_turn_audio()
-
-    # =====================================================
-    # BODY LEAN
-    # =====================================================
-
-    def _update_body_lean(
+    def _update_balance(
         self,
         delta_time: float,
     ):
-        """
-        Procedural turning lean.
-        """
-
         lean_target = (
             -self.current_turn_velocity
             * self.config.body_lean_strength
@@ -367,23 +215,6 @@ class TurnAction:
             10.0,
             delta_time,
         )
-
-        self.body_rig.body.rotate(
-            self.current_body_lean,
-            about_point=self.body_rig.center_anchor,
-        )
-
-    # =====================================================
-    # HIP SHIFT
-    # =====================================================
-
-    def _update_hip_shift(
-        self,
-        delta_time: float,
-    ):
-        """
-        Procedural balance shifting.
-        """
 
         shift_target = (
             self.current_turn_velocity
@@ -397,48 +228,19 @@ class TurnAction:
             delta_time,
         )
 
-        self.body_rig.center_of_mass = vec3(
+        self.body_rig.body_tilt = (
+            self.current_body_lean
+        )
+
+        self.body_rig.center_of_mass = point(
             self.current_hip_shift,
             0.0,
             0.0,
         )
 
-    # =====================================================
-    # FOOT ADJUSTMENT
-    # =====================================================
-
-    def _update_feet(self):
-        """
-        Subtle procedural foot rotation.
-        """
-
-        foot_adjustment = (
-            self.current_turn_velocity
-            * self.config.foot_adjustment_strength
-        )
-
-        self.body_rig.left_leg_rig.foot.set_rotation(
-            foot_adjustment
-        )
-
-        self.body_rig.right_leg_rig.foot.set_rotation(
-            -foot_adjustment
-        )
-
-    # =====================================================
-    # AUDIO
-    # =====================================================
-
-    def _update_turn_audio(self):
-        """
-        Procedural turning sound timing.
-
-        Goals:
-        - soft directional sweep
-        - educational mascot feel
-        - subtle cinematic motion
-        """
-
+    def _update_audio(
+        self,
+    ):
         if not self.with_sound:
             return
 
@@ -465,6 +267,12 @@ class TurnAction:
         if self.turn_sound_triggered:
             return
 
+        if maybe_play_sound is None:
+            return
+
+        if play_turn_sound is None:
+            return
+
         maybe_play_sound(
             self.with_sound,
             play_turn_sound,
@@ -472,96 +280,78 @@ class TurnAction:
         )
 
         self.turn_sound_triggered = True
-
         self.turn_sound_timer = 0.0
-
-    # =====================================================
-    # AUTO FACE MOVEMENT
-    # =====================================================
 
     def update_from_velocity(
         self,
         velocity,
     ):
-        """
-        Auto-orient toward movement direction.
-        """
-
         if not self.auto_rotate_enabled:
             return
 
-        velocity = np.array(
+        velocity = as_vec3(
             velocity,
-            dtype=float,
+            name="velocity",
         )
 
-        magnitude = np.linalg.norm(velocity)
+        magnitude = np.linalg.norm(
+            velocity,
+        )
 
-        if magnitude <= 1e-5:
+        if magnitude <= 1e-8:
             return
 
         self.face_direction(
-            velocity
+            velocity,
         )
 
-    # =====================================================
-    # STATE
-    # =====================================================
-
-    def turning(self):
+    def turning(
+        self,
+    ):
         return (
             abs(self.current_turn_velocity)
             > self.config.minimum_turn_threshold
         )
 
-    def get_current_angle(self):
+    def get_current_angle(
+        self,
+    ):
         return self.current_angle
 
-    def get_target_angle(self):
+    def get_target_angle(
+        self,
+    ):
         return self.target_angle
 
-    def get_turn_velocity(self):
+    def get_turn_velocity(
+        self,
+    ):
         return self.current_turn_velocity
 
-    # =====================================================
-    # AUDIO CONTROL
-    # =====================================================
-
-    def enable_sound(self):
-        """
-        Enable procedural turn audio.
-        """
-
+    def enable_sound(
+        self,
+    ):
         self.with_sound = True
 
-    def disable_sound(self):
-        """
-        Disable procedural turn audio.
-        """
-
+    def disable_sound(
+        self,
+    ):
         self.with_sound = False
 
-    # =====================================================
-    # CONFIG
-    # =====================================================
-
-    def enable_auto_rotate(self):
+    def enable_auto_rotate(
+        self,
+    ):
         self.auto_rotate_enabled = True
 
-    def disable_auto_rotate(self):
+    def disable_auto_rotate(
+        self,
+    ):
         self.auto_rotate_enabled = False
 
-    # =====================================================
-    # RESET
-    # =====================================================
-
-    def reset(self):
-        """
-        Reset turning state.
-        """
-
+    def reset(
+        self,
+    ):
         self.current_angle = 0.0
-
         self.target_angle = 0.0
 
         self.current_turn_velocity = 0.0
@@ -569,20 +359,16 @@ class TurnAction:
         self.turn_input = 0.0
 
         self.current_body_lean = 0.0
-
         self.current_hip_shift = 0.0
 
         self.turn_sound_timer = 0.0
-
         self.turn_sound_triggered = False
 
         self.is_turning = False
 
-    # =====================================================
-    # DEBUG
-    # =====================================================
-
-    def debug_print(self):
+    def debug_print(
+        self,
+    ):
         print("========== TURN ACTION ==========")
         print("Current Angle:", self.current_angle)
         print("Target Angle:", self.target_angle)
@@ -591,11 +377,9 @@ class TurnAction:
         print("Sound Enabled:", self.with_sound)
         print("=================================")
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
-
-    def __repr__(self):
+    def __repr__(
+        self,
+    ):
         return (
             f"TurnAction("
             f"angle={round(self.current_angle, 3)}, "
@@ -604,21 +388,20 @@ class TurnAction:
         )
 
 
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
-
 def build_turn_action(
     body_rig: BodyRig,
     config: TurnActionConfig | None = None,
     with_sound: bool = True,
-) -> TurnAction:
-    """
-    Create production-grade turn controller.
-    """
-
+):
     return TurnAction(
         body_rig=body_rig,
         config=config,
         with_sound=with_sound,
     )
+
+
+__all__ = [
+    "TurnActionConfig",
+    "TurnAction",
+    "build_turn_action",
+]

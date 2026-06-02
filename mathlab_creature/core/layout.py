@@ -1,99 +1,147 @@
 """
 Layout helper utilities for mathlab-mylinehub-creature.
 
-This file contains small reusable helpers for arranging objects and points in a
-clean, predictable way. These helpers are intentionally lightweight and are
-meant to reduce repeated spacing/alignment code across scenes and creature
-assembly files.
+This file contains small reusable helpers for arranging numeric points in a
+clean, predictable way.
+
+Architecture rule:
+- layout.py works with points only
+- layout.py does not create Manim objects
+- layout.py does not move creature parts directly
+- layout.py does not contain audio logic
+- audio remains separate and may later be triggered by actions
 
 This file focuses on:
-- horizontal and vertical arrangement
-- simple row / column point generation
-- centering helpers
-- gap / spacing helpers
-- edge placement helpers for scene layout
+- horizontal and vertical point arrangement
+- centered row / column point generation
+- bounds helpers
+- relative placement helpers
+- simple scene guide anchors
+- multi-point span helpers
 """
 
 from __future__ import annotations
+
+from typing import Iterable
+from typing import Optional
 
 import numpy as np
 
 from mathlab_creature.config.sizes import DEFAULT_EDGE_BUFFER
 from mathlab_creature.config.sizes import DEFAULT_OBJECT_BUFFER
+
+from mathlab_creature.core.geometry import as_vec3
 from mathlab_creature.core.geometry import midpoint
 from mathlab_creature.core.geometry import offset
 from mathlab_creature.core.geometry import point
+from mathlab_creature.core.geometry import zero_point
+
+
+# ============================================================
+# Type aliases
+# ============================================================
+
+Vec3Like = np.ndarray | Iterable[float]
+BoundsMap = dict[str, np.ndarray]
+SpanMap = dict[str, np.ndarray | float]
 
 
 # ============================================================
 # Internal helpers
 # ============================================================
 
-def _coerce_point(p: np.ndarray | list[float] | tuple[float, float, float] | None) -> np.ndarray:
+def _coerce_point(
+    value: Optional[Vec3Like] = None,
+    name: str = "point",
+) -> np.ndarray:
     """
     Normalize an incoming point-like value into a clean 3D numpy point.
 
     Accepted:
     - None -> origin
     - numpy array with shape (3,)
-    - list/tuple with exactly 3 numeric values
+    - list/tuple/iterable with exactly 3 numeric values
     """
-    if p is None:
-        return point(0.0, 0.0, 0.0)
+    if value is None:
+        return zero_point()
 
-    if isinstance(p, np.ndarray):
-        if p.shape != (3,):
-            raise ValueError(f"Point must have shape (3,), got {p.shape}")
-        return p.astype(float)
-
-    if isinstance(p, (list, tuple)):
-        if len(p) != 3:
-            raise ValueError(f"Point-like sequence must have 3 values, got {len(p)}")
-        return point(p[0], p[1], p[2])
-
-    raise TypeError("Point must be None, a numpy.ndarray, or a 3-item list/tuple")
+    return as_vec3(
+        value,
+        name=name,
+    )
 
 
-def _validate_count(count: int) -> int:
+def _validate_count(
+    count: int,
+) -> int:
     """
     Ensure count is a non-negative integer.
     """
     if not isinstance(count, int):
-        raise TypeError(f"count must be an int, got {type(count).__name__}")
+        raise TypeError(
+            f"count must be an int, got {type(count).__name__}"
+        )
+
     if count < 0:
-        raise ValueError(f"count must be >= 0, got {count}")
+        raise ValueError(
+            f"count must be >= 0, got {count}"
+        )
+
     return count
 
 
-def _validate_gap(gap: float) -> float:
+def _validate_gap(
+    gap: float,
+) -> float:
     """
     Ensure a gap value is non-negative.
     """
     if not isinstance(gap, (int, float)):
-        raise TypeError(f"gap must be numeric, got {type(gap).__name__}")
+        raise TypeError(
+            f"gap must be numeric, got {type(gap).__name__}"
+        )
+
     if gap < 0:
-        raise ValueError(f"gap must be >= 0, got {gap}")
+        raise ValueError(
+            f"gap must be >= 0, got {gap}"
+        )
+
     return float(gap)
 
 
-def _validate_distance(distance: float) -> float:
+def _validate_distance(
+    distance: float,
+) -> float:
     """
     Ensure a relative placement distance is numeric.
+
     Negative values are allowed because they can be intentional.
     """
     if not isinstance(distance, (int, float)):
-        raise TypeError(f"distance must be numeric, got {type(distance).__name__}")
+        raise TypeError(
+            f"distance must be numeric, got {type(distance).__name__}"
+        )
+
     return float(distance)
 
 
-def _validate_dimension(name: str, value: float) -> float:
+def _validate_dimension(
+    name: str,
+    value: float,
+) -> float:
     """
     Ensure width/height values are non-negative numeric values.
     """
     if not isinstance(value, (int, float)):
-        raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
+        raise TypeError(
+            f"{name} must be numeric, got {type(value).__name__}"
+        )
+
     if value < 0:
-        raise ValueError(f"{name} must be >= 0, got {value}")
+        raise ValueError(
+            f"{name} must be >= 0, got {value}"
+        )
+
     return float(value)
 
 
@@ -101,7 +149,10 @@ def _validate_dimension(name: str, value: float) -> float:
 # Basic spacing helpers
 # ============================================================
 
-def gap_after(index: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
+def gap_after(
+    index: int,
+    gap: float = DEFAULT_OBJECT_BUFFER,
+) -> float:
     """
     Return the cumulative gap after a given zero-based index.
 
@@ -111,15 +162,24 @@ def gap_after(index: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
         index=2, gap=0.25 -> 0.50
     """
     if not isinstance(index, int):
-        raise TypeError(f"index must be an int, got {type(index).__name__}")
+        raise TypeError(
+            f"index must be an int, got {type(index).__name__}"
+        )
+
     if index < 0:
-        raise ValueError(f"index must be >= 0, got {index}")
+        raise ValueError(
+            f"index must be >= 0, got {index}"
+        )
 
     gap = _validate_gap(gap)
+
     return index * gap
 
 
-def total_gaps(count: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
+def total_gaps(
+    count: int,
+    gap: float = DEFAULT_OBJECT_BUFFER,
+) -> float:
     """
     Total spacing occupied by gaps between count items.
 
@@ -137,14 +197,17 @@ def total_gaps(count: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
     return (count - 1) * gap
 
 
-def total_span(count: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
+def total_span(
+    count: int,
+    gap: float = DEFAULT_OBJECT_BUFFER,
+) -> float:
     """
     Return the total center-to-center span for count items spaced by gap.
-
-    This is effectively the same as total_gaps(), but the name reads better
-    in some layout contexts.
     """
-    return total_gaps(count, gap)
+    return total_gaps(
+        count,
+        gap,
+    )
 
 
 # ============================================================
@@ -153,7 +216,7 @@ def total_span(count: int, gap: float = DEFAULT_OBJECT_BUFFER) -> float:
 
 def horizontal_points(
     count: int,
-    start: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    start: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> list[np.ndarray]:
     """
@@ -165,14 +228,25 @@ def horizontal_points(
     """
     count = _validate_count(count)
     gap = _validate_gap(gap)
-    start = _coerce_point(start)
+    start_point = _coerce_point(
+        start,
+        "start",
+    )
 
-    return [offset(start, i * gap, 0.0, 0.0) for i in range(count)]
+    return [
+        offset(
+            start_point,
+            i * gap,
+            0.0,
+            0.0,
+        )
+        for i in range(count)
+    ]
 
 
 def vertical_points(
     count: int,
-    start: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    start: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> list[np.ndarray]:
     """
@@ -184,9 +258,20 @@ def vertical_points(
     """
     count = _validate_count(count)
     gap = _validate_gap(gap)
-    start = _coerce_point(start)
+    start_point = _coerce_point(
+        start,
+        "start",
+    )
 
-    return [offset(start, 0.0, i * gap, 0.0) for i in range(count)]
+    return [
+        offset(
+            start_point,
+            0.0,
+            i * gap,
+            0.0,
+        )
+        for i in range(count)
+    ]
 
 
 # ============================================================
@@ -195,7 +280,7 @@ def vertical_points(
 
 def centered_horizontal_points(
     count: int,
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> list[np.ndarray]:
     """
@@ -207,21 +292,35 @@ def centered_horizontal_points(
     """
     count = _validate_count(count)
     gap = _validate_gap(gap)
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
 
     if count == 0:
         return []
 
-    total_width = total_gaps(count, gap)
-    start_x = center[0] - total_width / 2.0
-    start = point(start_x, center[1], center[2])
+    total_width = total_gaps(
+        count,
+        gap,
+    )
+    start_x = center_point[0] - total_width / 2.0
+    start = point(
+        start_x,
+        center_point[1],
+        center_point[2],
+    )
 
-    return horizontal_points(count=count, start=start, gap=gap)
+    return horizontal_points(
+        count=count,
+        start=start,
+        gap=gap,
+    )
 
 
 def centered_vertical_points(
     count: int,
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> list[np.ndarray]:
     """
@@ -233,16 +332,30 @@ def centered_vertical_points(
     """
     count = _validate_count(count)
     gap = _validate_gap(gap)
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
 
     if count == 0:
         return []
 
-    total_height = total_gaps(count, gap)
-    start_y = center[1] - total_height / 2.0
-    start = point(center[0], start_y, center[2])
+    total_height = total_gaps(
+        count,
+        gap,
+    )
+    start_y = center_point[1] - total_height / 2.0
+    start = point(
+        center_point[0],
+        start_y,
+        center_point[2],
+    )
 
-    return vertical_points(count=count, start=start, gap=gap)
+    return vertical_points(
+        count=count,
+        start=start,
+        gap=gap,
+    )
 
 
 # ============================================================
@@ -250,42 +363,57 @@ def centered_vertical_points(
 # ============================================================
 
 def bounds_from_center(
-    center: np.ndarray | list[float] | tuple[float, float, float],
+    center: Vec3Like,
     width: float,
     height: float,
-) -> dict[str, np.ndarray]:
+) -> BoundsMap:
     """
     Return common bounding points from a center, width, and height.
     """
-    center = _coerce_point(center)
-    width = _validate_dimension("width", width)
-    height = _validate_dimension("height", height)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
+    width = _validate_dimension(
+        "width",
+        width,
+    )
+    height = _validate_dimension(
+        "height",
+        height,
+    )
 
     half_w = width / 2.0
     half_h = height / 2.0
 
     return {
-        "center": center,
-        "top": point(center[0], center[1] + half_h, center[2]),
-        "bottom": point(center[0], center[1] - half_h, center[2]),
-        "left": point(center[0] - half_w, center[1], center[2]),
-        "right": point(center[0] + half_w, center[1], center[2]),
-        "top_left": point(center[0] - half_w, center[1] + half_h, center[2]),
-        "top_right": point(center[0] + half_w, center[1] + half_h, center[2]),
-        "bottom_left": point(center[0] - half_w, center[1] - half_h, center[2]),
-        "bottom_right": point(center[0] + half_w, center[1] - half_h, center[2]),
+        "center": center_point,
+        "top": point(center_point[0], center_point[1] + half_h, center_point[2]),
+        "bottom": point(center_point[0], center_point[1] - half_h, center_point[2]),
+        "left": point(center_point[0] - half_w, center_point[1], center_point[2]),
+        "right": point(center_point[0] + half_w, center_point[1], center_point[2]),
+        "top_left": point(center_point[0] - half_w, center_point[1] + half_h, center_point[2]),
+        "top_right": point(center_point[0] + half_w, center_point[1] + half_h, center_point[2]),
+        "bottom_left": point(center_point[0] - half_w, center_point[1] - half_h, center_point[2]),
+        "bottom_right": point(center_point[0] + half_w, center_point[1] - half_h, center_point[2]),
     }
 
 
-def bounds_size(width: float, height: float) -> dict[str, float]:
+def bounds_size(
+    width: float,
+    height: float,
+) -> dict[str, float]:
     """
-    Small semantic helper returning width/height and their halves.
-
-    Useful when writing explicit layout code and wanting to avoid repeated
-    half-width/half-height math.
+    Return width/height and their halves.
     """
-    width = _validate_dimension("width", width)
-    height = _validate_dimension("height", height)
+    width = _validate_dimension(
+        "width",
+        width,
+    )
+    height = _validate_dimension(
+        "height",
+        height,
+    )
 
     return {
         "width": width,
@@ -300,109 +428,149 @@ def bounds_size(width: float, height: float) -> dict[str, float]:
 # ============================================================
 
 def place_right_of(
-    base_point: np.ndarray | list[float] | tuple[float, float, float],
+    base_point: Vec3Like,
     distance: float = DEFAULT_OBJECT_BUFFER,
 ) -> np.ndarray:
     """
     Return a point to the right of base_point.
     """
-    return offset(_coerce_point(base_point), _validate_distance(distance), 0.0, 0.0)
+    return offset(
+        _coerce_point(base_point, "base_point"),
+        _validate_distance(distance),
+        0.0,
+        0.0,
+    )
 
 
 def place_left_of(
-    base_point: np.ndarray | list[float] | tuple[float, float, float],
+    base_point: Vec3Like,
     distance: float = DEFAULT_OBJECT_BUFFER,
 ) -> np.ndarray:
     """
     Return a point to the left of base_point.
     """
-    return offset(_coerce_point(base_point), -_validate_distance(distance), 0.0, 0.0)
+    return offset(
+        _coerce_point(base_point, "base_point"),
+        -_validate_distance(distance),
+        0.0,
+        0.0,
+    )
 
 
 def place_above(
-    base_point: np.ndarray | list[float] | tuple[float, float, float],
+    base_point: Vec3Like,
     distance: float = DEFAULT_OBJECT_BUFFER,
 ) -> np.ndarray:
     """
     Return a point above base_point.
     """
-    return offset(_coerce_point(base_point), 0.0, _validate_distance(distance), 0.0)
+    return offset(
+        _coerce_point(base_point, "base_point"),
+        0.0,
+        _validate_distance(distance),
+        0.0,
+    )
 
 
 def place_below(
-    base_point: np.ndarray | list[float] | tuple[float, float, float],
+    base_point: Vec3Like,
     distance: float = DEFAULT_OBJECT_BUFFER,
 ) -> np.ndarray:
     """
     Return a point below base_point.
     """
-    return offset(_coerce_point(base_point), 0.0, -_validate_distance(distance), 0.0)
+    return offset(
+        _coerce_point(base_point, "base_point"),
+        0.0,
+        -_validate_distance(distance),
+        0.0,
+    )
 
 
 # ============================================================
-# Two-object layout helpers
+# Two-object / three-object layout helpers
 # ============================================================
 
 def centers_for_horizontal_pair(
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Return left and right centers for a simple horizontal pair.
     """
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
     gap = _validate_gap(gap)
 
     half_gap = gap / 2.0
-    left = offset(center, -half_gap, 0.0, 0.0)
-    right = offset(center, half_gap, 0.0, 0.0)
-    return left, right
+
+    return (
+        offset(center_point, -half_gap, 0.0, 0.0),
+        offset(center_point, half_gap, 0.0, 0.0),
+    )
 
 
 def centers_for_vertical_pair(
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Return bottom and top centers for a simple vertical pair.
     """
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
     gap = _validate_gap(gap)
 
     half_gap = gap / 2.0
-    bottom = offset(center, 0.0, -half_gap, 0.0)
-    top = offset(center, 0.0, half_gap, 0.0)
-    return bottom, top
+
+    return (
+        offset(center_point, 0.0, -half_gap, 0.0),
+        offset(center_point, 0.0, half_gap, 0.0),
+    )
 
 
 def centers_for_horizontal_triplet(
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Return left, center, and right points for a simple horizontal triplet.
+    Return left, center, and right points for a horizontal triplet.
     """
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
     gap = _validate_gap(gap)
 
-    left = offset(center, -gap, 0.0, 0.0)
-    right = offset(center, gap, 0.0, 0.0)
-    return left, center, right
+    return (
+        offset(center_point, -gap, 0.0, 0.0),
+        center_point,
+        offset(center_point, gap, 0.0, 0.0),
+    )
 
 
 def centers_for_vertical_triplet(
-    center: np.ndarray | list[float] | tuple[float, float, float] | None = None,
+    center: Optional[Vec3Like] = None,
     gap: float = DEFAULT_OBJECT_BUFFER,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Return bottom, center, and top points for a simple vertical triplet.
+    Return bottom, center, and top points for a vertical triplet.
     """
-    center = _coerce_point(center)
+    center_point = _coerce_point(
+        center,
+        "center",
+    )
     gap = _validate_gap(gap)
 
-    bottom = offset(center, 0.0, -gap, 0.0)
-    top = offset(center, 0.0, gap, 0.0)
-    return bottom, center, top
+    return (
+        offset(center_point, 0.0, -gap, 0.0),
+        center_point,
+        offset(center_point, 0.0, gap, 0.0),
+    )
 
 
 # ============================================================
@@ -410,78 +578,165 @@ def centers_for_vertical_triplet(
 # ============================================================
 
 def scene_title_anchor(
-    frame_top_center: np.ndarray | list[float] | tuple[float, float, float],
+    frame_top_center: Vec3Like,
     top_buffer: float = DEFAULT_EDGE_BUFFER,
 ) -> np.ndarray:
     """
     Anchor for placing a title slightly below the top frame center.
     """
-    return offset(_coerce_point(frame_top_center), 0.0, -_validate_gap(top_buffer), 0.0)
+    return offset(
+        _coerce_point(frame_top_center, "frame_top_center"),
+        0.0,
+        -_validate_gap(top_buffer),
+        0.0,
+    )
 
 
 def scene_footer_anchor(
-    frame_bottom_center: np.ndarray | list[float] | tuple[float, float, float],
+    frame_bottom_center: Vec3Like,
     bottom_buffer: float = DEFAULT_EDGE_BUFFER,
 ) -> np.ndarray:
     """
     Anchor for placing content slightly above the bottom frame center.
     """
-    return offset(_coerce_point(frame_bottom_center), 0.0, _validate_gap(bottom_buffer), 0.0)
+    return offset(
+        _coerce_point(frame_bottom_center, "frame_bottom_center"),
+        0.0,
+        _validate_gap(bottom_buffer),
+        0.0,
+    )
 
 
 def scene_left_anchor(
-    frame_left_center: np.ndarray | list[float] | tuple[float, float, float],
+    frame_left_center: Vec3Like,
     left_buffer: float = DEFAULT_EDGE_BUFFER,
 ) -> np.ndarray:
     """
     Anchor for placing content slightly inside the left frame edge.
     """
-    return offset(_coerce_point(frame_left_center), _validate_gap(left_buffer), 0.0, 0.0)
+    return offset(
+        _coerce_point(frame_left_center, "frame_left_center"),
+        _validate_gap(left_buffer),
+        0.0,
+        0.0,
+    )
 
 
 def scene_right_anchor(
-    frame_right_center: np.ndarray | list[float] | tuple[float, float, float],
+    frame_right_center: Vec3Like,
     right_buffer: float = DEFAULT_EDGE_BUFFER,
 ) -> np.ndarray:
     """
     Anchor for placing content slightly inside the right frame edge.
     """
-    return offset(_coerce_point(frame_right_center), -_validate_gap(right_buffer), 0.0, 0.0)
+    return offset(
+        _coerce_point(frame_right_center, "frame_right_center"),
+        -_validate_gap(right_buffer),
+        0.0,
+        0.0,
+    )
+
+
+# ============================================================
+# Creature layout helpers
+# ============================================================
+
+def creature_center_on_scene(
+    scene_center: Optional[Vec3Like] = None,
+) -> np.ndarray:
+    """
+    Return the recommended creature root position for a centered scene.
+    """
+    return _coerce_point(
+        scene_center,
+        "scene_center",
+    )
+
+
+def creature_left_stage_position(
+    scene_center: Optional[Vec3Like] = None,
+    distance: float = 2.5,
+) -> np.ndarray:
+    """
+    Return a left-stage creature root position.
+    """
+    return place_left_of(
+        _coerce_point(scene_center, "scene_center"),
+        distance,
+    )
+
+
+def creature_right_stage_position(
+    scene_center: Optional[Vec3Like] = None,
+    distance: float = 2.5,
+) -> np.ndarray:
+    """
+    Return a right-stage creature root position.
+    """
+    return place_right_of(
+        _coerce_point(scene_center, "scene_center"),
+        distance,
+    )
 
 
 # ============================================================
 # Multi-point convenience helpers
 # ============================================================
 
-def center_of_points(points: list[np.ndarray]) -> np.ndarray:
+def center_of_points(
+    points: list[Vec3Like],
+) -> np.ndarray:
     """
     Return average center of a list of points.
 
     If the list is empty, return origin.
     """
     if not points:
-        return point(0.0, 0.0, 0.0)
+        return zero_point()
 
-    normalized_points: list[np.ndarray] = [_coerce_point(p) for p in points]
-    stacked = np.array(normalized_points, dtype=float)
-    return np.mean(stacked, axis=0)
+    normalized_points: list[np.ndarray] = [
+        _coerce_point(
+            p,
+            "point",
+        )
+        for p in points
+    ]
+
+    stacked = np.array(
+        normalized_points,
+        dtype=float,
+    )
+
+    return np.mean(
+        stacked,
+        axis=0,
+    )
 
 
-def span_midpoint(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
+def span_midpoint(
+    p1: Vec3Like,
+    p2: Vec3Like,
+) -> np.ndarray:
     """
-    Small wrapper around midpoint for semantic readability in layout code.
+    Small wrapper around midpoint for semantic readability.
     """
-    return midpoint(_coerce_point(p1), _coerce_point(p2))
+    return midpoint(
+        _coerce_point(p1, "p1"),
+        _coerce_point(p2, "p2"),
+    )
 
 
-def span_between_points(points: list[np.ndarray]) -> dict[str, np.ndarray | float]:
+def span_between_points(
+    points: list[Vec3Like],
+) -> SpanMap:
     """
     Return simple span information for a set of points.
 
     Useful for quick layout inspection and debug helpers.
     """
     if not points:
-        origin = point(0.0, 0.0, 0.0)
+        origin = zero_point()
+
         return {
             "min": origin,
             "max": origin,
@@ -491,11 +746,27 @@ def span_between_points(points: list[np.ndarray]) -> dict[str, np.ndarray | floa
             "depth": 0.0,
         }
 
-    normalized_points: list[np.ndarray] = [_coerce_point(p) for p in points]
-    stacked = np.array(normalized_points, dtype=float)
+    normalized_points: list[np.ndarray] = [
+        _coerce_point(
+            p,
+            "point",
+        )
+        for p in points
+    ]
 
-    min_vals = np.min(stacked, axis=0)
-    max_vals = np.max(stacked, axis=0)
+    stacked = np.array(
+        normalized_points,
+        dtype=float,
+    )
+
+    min_vals = np.min(
+        stacked,
+        axis=0,
+    )
+    max_vals = np.max(
+        stacked,
+        axis=0,
+    )
     center = (min_vals + max_vals) / 2.0
 
     return {
@@ -506,3 +777,41 @@ def span_between_points(points: list[np.ndarray]) -> dict[str, np.ndarray | floa
         "height": float(max_vals[1] - min_vals[1]),
         "depth": float(max_vals[2] - min_vals[2]),
     }
+
+
+# ============================================================
+# Export control
+# ============================================================
+
+__all__ = [
+    "Vec3Like",
+    "BoundsMap",
+    "SpanMap",
+    "gap_after",
+    "total_gaps",
+    "total_span",
+    "horizontal_points",
+    "vertical_points",
+    "centered_horizontal_points",
+    "centered_vertical_points",
+    "bounds_from_center",
+    "bounds_size",
+    "place_right_of",
+    "place_left_of",
+    "place_above",
+    "place_below",
+    "centers_for_horizontal_pair",
+    "centers_for_vertical_pair",
+    "centers_for_horizontal_triplet",
+    "centers_for_vertical_triplet",
+    "scene_title_anchor",
+    "scene_footer_anchor",
+    "scene_left_anchor",
+    "scene_right_anchor",
+    "creature_center_on_scene",
+    "creature_left_stage_position",
+    "creature_right_stage_position",
+    "center_of_points",
+    "span_midpoint",
+    "span_between_points",
+]

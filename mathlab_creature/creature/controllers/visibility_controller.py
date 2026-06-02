@@ -1,25 +1,13 @@
 """
-mathlab_creature/creature/controllers/visibility_controller.py
+Visibility controller for mathlab-mylinehub-creature.
 
-Production-grade creature visibility controller.
+Controls visibility for one connected creature.
 
-Core Responsibilities
----------------------
-- gayab/show system
-- opacity state
-- preserve transform state
-- visibility transitions
-- cinematic appearing/disappearing
-- hidden-state management
-
-Design Goals
-------------
-- production-ready
-- hierarchy-safe
-- animation-safe
-- state-preserving
-- future multiplayer-ready
-- cinematic-ready
+Architecture rule:
+- visibility_controller.py never manipulates body parts
+- visibility_controller.py works through BodyRig
+- BodyRig owns creature root/group visibility
+- preserves creature transform state
 """
 
 from __future__ import annotations
@@ -29,135 +17,81 @@ from enum import Enum
 
 import numpy as np
 
-from mathlab_creature.core.kinematics import (
-    damp,
-    clamp,
-)
+from mathlab_creature.core.kinematics import damp
+from mathlab_creature.core.kinematics import clamp
+from mathlab_creature.creature.rigs.body_rig import BodyRig
 
-from mathlab_creature.creature.rigs.body_rig import (
-    BodyRig,
-)
-
-
-# =========================================================
-# ENUMS
-# =========================================================
 
 class VisibilityMode(str, Enum):
-    """
-    Visibility states.
-    """
-
     VISIBLE = "visible"
-
     HIDDEN = "hidden"
-
     FADING_IN = "fading_in"
-
     FADING_OUT = "fading_out"
 
 
-# =========================================================
-# CONFIG
-# =========================================================
-
 @dataclass
 class VisibilityControllerConfig:
-    """
-    Tunable visibility settings.
-    """
-
     fade_speed: float = 8.0
 
     minimum_visible_opacity: float = 0.01
 
     hidden_opacity: float = 0.0
-
     visible_opacity: float = 1.0
-
-    preserve_collision_state: bool = True
 
     preserve_transform_state: bool = True
 
     enable_cinematic_fade: bool = True
 
 
-# =========================================================
-# VISIBILITY CONTROLLER
-# =========================================================
-
 class VisibilityController:
     """
-    Production-grade visibility controller.
-
-    Features:
-    - smooth fading
-    - instant hide/show
-    - state preservation
-    - cinematic transitions
-    - transform-safe visibility
+    Controls creature visibility through BodyRig.
     """
 
     def __init__(
         self,
         body_rig: BodyRig,
         config: VisibilityControllerConfig | None = None,
-    ):
+    ) -> None:
+        if not isinstance(body_rig, BodyRig):
+            raise TypeError(
+                f"body_rig must be BodyRig, got {type(body_rig).__name__}"
+            )
+
         self.body_rig = body_rig
-
-        self.config = (
-            config
-            or VisibilityControllerConfig()
-        )
-
-        # -------------------------------------------------
-        # VISIBILITY STATE
-        # -------------------------------------------------
+        self.config = config or VisibilityControllerConfig()
 
         self.mode = VisibilityMode.VISIBLE
 
         self.current_opacity = 1.0
-
         self.target_opacity = 1.0
 
         self.visible = True
 
-        # -------------------------------------------------
-        # PRESERVED STATE
-        # -------------------------------------------------
-
-        self.saved_position = (
-            self.body_rig.current_position.copy()
+        self.saved_position = np.array(
+            self.body_rig.current_position,
+            dtype=float,
         )
 
-        self.saved_rotation = (
+        self.saved_rotation = float(
             self.body_rig.current_rotation
         )
 
-        self.saved_scale = (
-            self.body_rig.current_scale.copy()
+        self.saved_scale = float(
+            self.body_rig.current_scale
         )
-
-    # =====================================================
-    # UPDATE
-    # =====================================================
 
     def update(
         self,
         delta_time: float,
-    ):
-        """
-        Update cinematic fading.
-        """
-
-        if (
-            not self.config.enable_cinematic_fade
-        ):
+    ) -> None:
+        if not self.config.enable_cinematic_fade:
             return
 
-        # -------------------------------------------------
-        # OPACITY BLEND
-        # -------------------------------------------------
+        delta_time = float(delta_time)
+
+        if delta_time <= 0:
+            return
 
         self.current_opacity = damp(
             self.current_opacity,
@@ -172,61 +106,34 @@ class VisibilityController:
             1.0,
         )
 
-        # -------------------------------------------------
-        # APPLY
-        # -------------------------------------------------
-
         self.body_rig.set_opacity(
-            self.current_opacity
+            self.current_opacity,
         )
 
-        # -------------------------------------------------
-        # STATE
-        # -------------------------------------------------
+        if abs(
+            self.current_opacity
+            - self.target_opacity
+        ) <= 0.001:
 
-        if (
-            abs(
-                self.current_opacity
-                - self.target_opacity
-            )
-            <= 0.001
-        ):
             if (
                 self.target_opacity
                 <= self.config.minimum_visible_opacity
             ):
-                self.mode = (
-                    VisibilityMode.HIDDEN
-                )
-
+                self.mode = VisibilityMode.HIDDEN
                 self.visible = False
 
             else:
-                self.mode = (
-                    VisibilityMode.VISIBLE
-                )
-
+                self.mode = VisibilityMode.VISIBLE
                 self.visible = True
-
-    # =====================================================
-    # SHOW
-    # =====================================================
 
     def show(
         self,
         animated: bool = True,
-    ):
-        """
-        Restore visibility.
-        """
-
+    ) -> None:
         self.visible = True
 
         if animated:
-            self.mode = (
-                VisibilityMode.FADING_IN
-            )
-
+            self.mode = VisibilityMode.FADING_IN
             self.target_opacity = (
                 self.config.visible_opacity
             )
@@ -240,32 +147,20 @@ class VisibilityController:
                 self.config.visible_opacity
             )
 
-            self.mode = (
-                VisibilityMode.VISIBLE
-            )
+            self.mode = VisibilityMode.VISIBLE
 
             self.body_rig.set_opacity(
-                self.current_opacity
+                self.current_opacity,
             )
-
-    # =====================================================
-    # HIDE
-    # =====================================================
 
     def hide(
         self,
         animated: bool = True,
-    ):
-        """
-        Hide while preserving state.
-        """
-
+    ) -> None:
         self._save_state()
 
         if animated:
-            self.mode = (
-                VisibilityMode.FADING_OUT
-            )
+            self.mode = VisibilityMode.FADING_OUT
 
             self.target_opacity = (
                 self.config.hidden_opacity
@@ -280,204 +175,132 @@ class VisibilityController:
                 self.config.hidden_opacity
             )
 
-            self.mode = (
-                VisibilityMode.HIDDEN
-            )
-
             self.visible = False
+            self.mode = VisibilityMode.HIDDEN
 
             self.body_rig.set_opacity(
-                self.current_opacity
+                self.current_opacity,
             )
-
-    # =====================================================
-    # TOGGLE
-    # =====================================================
 
     def toggle_visibility(
         self,
         animated: bool = True,
-    ):
-        """
-        Toggle visibility state.
-        """
-
+    ) -> None:
         if self.visible:
-            self.hide(
-                animated=animated
-            )
-
+            self.hide(animated=animated)
         else:
-            self.show(
-                animated=animated
-            )
+            self.show(animated=animated)
 
-    # =====================================================
-    # SAVE STATE
-    # =====================================================
-
-    def _save_state(self):
-        """
-        Preserve transform state before hiding.
-        """
-
-        if (
-            not self.config.preserve_transform_state
-        ):
+    def _save_state(
+        self,
+    ) -> None:
+        if not self.config.preserve_transform_state:
             return
 
-        self.saved_position = (
-            self.body_rig.current_position.copy()
+        self.saved_position = np.array(
+            self.body_rig.current_position,
+            dtype=float,
         )
 
-        self.saved_rotation = (
+        self.saved_rotation = float(
             self.body_rig.current_rotation
         )
 
-        self.saved_scale = (
-            self.body_rig.current_scale.copy()
+        self.saved_scale = float(
+            self.body_rig.current_scale
         )
 
-    # =====================================================
-    # RESTORE STATE
-    # =====================================================
-
-    def restore_state(self):
-        """
-        Restore preserved transforms.
-        """
-
-        if (
-            not self.config.preserve_transform_state
-        ):
+    def restore_state(
+        self,
+    ) -> None:
+        if not self.config.preserve_transform_state:
             return
 
         self.body_rig.teleport(
-            self.saved_position
+            self.saved_position,
         )
 
         self.body_rig.rotate_to(
-            self.saved_rotation
+            self.saved_rotation,
         )
 
         self.body_rig.set_creature_scale(
-            self.saved_scale[0]
+            self.saved_scale,
         )
-
-    # =====================================================
-    # INSTANT APPEAR
-    # =====================================================
 
     def appear_at(
         self,
         position,
-    ):
-        """
-        Appear instantly at world position.
-        """
-
-        position = np.array(
-            position,
-            dtype=float,
-        )
-
+    ) -> None:
         self.body_rig.teleport(
-            position
+            np.array(
+                position,
+                dtype=float,
+            )
         )
 
-        self.show(
-            animated=False
-        )
-
-    # =====================================================
-    # DISAPPEAR
-    # =====================================================
+        self.show(animated=False)
 
     def disappear(
         self,
         animated: bool = True,
-    ):
-        """
-        Cinematic vanish.
-        """
-
-        self.hide(
-            animated=animated
-        )
-
-    # =====================================================
-    # FADE
-    # =====================================================
+    ) -> None:
+        self.hide(animated=animated)
 
     def fade_to(
         self,
         opacity: float,
-    ):
-        """
-        Fade to arbitrary opacity.
-        """
-
+    ) -> None:
         opacity = clamp(
-            opacity,
+            float(opacity),
             0.0,
             1.0,
         )
 
         self.target_opacity = opacity
 
-        if opacity <= (
-            self.config.minimum_visible_opacity
+        if (
+            opacity
+            <= self.config.minimum_visible_opacity
         ):
-            self.mode = (
-                VisibilityMode.FADING_OUT
-            )
-
+            self.mode = VisibilityMode.FADING_OUT
         else:
-            self.mode = (
-                VisibilityMode.FADING_IN
-            )
-
-    # =====================================================
-    # TELEPORT HIDDEN
-    # =====================================================
+            self.mode = VisibilityMode.FADING_IN
 
     def hidden_teleport(
         self,
         position,
-    ):
-        """
-        Move creature while invisible.
-        """
-
+    ) -> None:
         was_visible = self.visible
 
-        self.hide(
-            animated=False
-        )
+        self.hide(animated=False)
 
         self.body_rig.teleport(
-            position
+            np.array(
+                position,
+                dtype=float,
+            )
         )
 
         if was_visible:
-            self.show(
-                animated=False
-            )
+            self.show(animated=False)
 
-    # =====================================================
-    # STATE
-    # =====================================================
+    def is_visible(
+        self,
+    ) -> bool:
+        return bool(self.visible)
 
-    def is_visible(self):
-        return self.visible
-
-    def is_hidden(self):
+    def is_hidden(
+        self,
+    ) -> bool:
         return (
             self.mode
             == VisibilityMode.HIDDEN
         )
 
-    def fading(self):
+    def fading(
+        self,
+    ) -> bool:
         return (
             self.mode
             in (
@@ -486,38 +309,30 @@ class VisibilityController:
             )
         )
 
-    def get_opacity(self):
-        return self.current_opacity
+    def get_opacity(
+        self,
+    ) -> float:
+        return float(self.current_opacity)
 
-    def get_mode(self):
+    def get_mode(
+        self,
+    ) -> VisibilityMode:
         return self.mode
 
-    # =====================================================
-    # RESET
-    # =====================================================
-
-    def reset(self):
-        """
-        Reset visibility state.
-        """
-
+    def reset(
+        self,
+    ) -> None:
         self.current_opacity = 1.0
-
         self.target_opacity = 1.0
 
         self.visible = True
-
         self.mode = VisibilityMode.VISIBLE
 
-        self.body_rig.set_opacity(
-            1.0
-        )
+        self.body_rig.set_opacity(1.0)
 
-    # =====================================================
-    # DEBUG
-    # =====================================================
-
-    def debug_print(self):
+    def debug_print(
+        self,
+    ) -> None:
         print("====== VISIBILITY CONTROLLER ======")
         print("Mode:", self.mode)
         print("Visible:", self.visible)
@@ -525,32 +340,30 @@ class VisibilityController:
         print("Target Opacity:", self.target_opacity)
         print("===================================")
 
-    # =====================================================
-    # REPRESENTATION
-    # =====================================================
-
-    def __repr__(self):
+    def __repr__(
+        self,
+    ) -> str:
         return (
             f"VisibilityController("
-            f"mode='{self.mode}', "
+            f"mode={self.mode!r}, "
             f"opacity={round(self.current_opacity, 3)}"
             f")"
         )
 
 
-# =========================================================
-# FACTORY HELPERS
-# =========================================================
-
 def build_visibility_controller(
     body_rig: BodyRig,
     config: VisibilityControllerConfig | None = None,
 ) -> VisibilityController:
-    """
-    Create production-grade visibility controller.
-    """
-
     return VisibilityController(
         body_rig=body_rig,
         config=config,
     )
+
+
+__all__ = [
+    "VisibilityMode",
+    "VisibilityControllerConfig",
+    "VisibilityController",
+    "build_visibility_controller",
+]
